@@ -14,7 +14,17 @@ def fetch_tweets(query, count=100, since_id=None):
     }
     if since_id:
         params['since_id'] = since_id
-    response = client.search_recent_tweets(**params)
+    try:
+        response = client.search_recent_tweets(**params)
+    except tweepy.errors.Unauthorized as e:
+        print("Twitter API Unauthorized (401). Check your TWITTER_BEARER_TOKEN and app access tier.")
+        return [], {}
+    except tweepy.Forbidden as e:
+        print("Twitter API Forbidden (403). Your app may lack permissions for recent search.")
+        return [], {}
+    except tweepy.TweepyException as e:
+        print(f"Twitter API error: {e}")
+        return [], {}
     tweets = response.data if response and response.data else []
     places = {}
     if response and getattr(response, 'includes', None):

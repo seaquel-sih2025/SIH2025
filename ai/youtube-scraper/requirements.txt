@@ -14,3 +14,4 @@ grpcio-status
 langchain
 google-genai
 langchain-google-genai
+python-dotenv 

@@ -10,18 +10,19 @@ def analyze_post_with_gemini(post, hashtags=None, max_retries=3):
 	hashtags_text = ", ".join(f"#{h}" for h in hashtags[:8])  # cap to 8 to keep prompt short
 	extra = f"\nHashtags: {hashtags_text}\n" if hashtags_text else "\n"
 	prompt = f"""
-	You are an expert in disaster monitoring. Analyze the following social media post and return ONLY valid JSON (no markdown, no comments) matching this schema:
+	You are an expert in disaster monitoring. Analyze the social post and output ONLY a single-line valid JSON object (no markdown, no comments) with this schema and rules:
 	{{
-	  "ocean_hazard": true|false,
-	  "event_type": "tsunami|high waves|flooding|storm surge|cyclone|hurricane|typhoon|swell|Rip current|coastal erosion|Algal Bloom|Pollution|Other",
-	  "location": "short human place name, cant be empty or unknown use any relevent place name",
+	  "ocean_hazard": true|false,  // true if the post relates to ocean/coastal hazards (e.g., tsunami, storm surge, high waves/swell, rip current, coastal erosion, tropical cyclones at/near coast, marine pollution/algal bloom). false otherwise.
+	  "event_type": "tsunami|high waves|flooding|storm surge|cyclone|hurricane|typhoon|swell|rip current|coastal erosion|algal bloom|pollution|other",
+	  "location": "short human place name (city/region/country). If unknown, put the most plausible concise place name; do not leave empty.",
 	  "urgency": "immediate|moderate|low|rumor|unknown",
 	  "sentiment": "panic|calm|confusion|neutral|unknown"
 	}}
-	
-	Location guidance:
-	- You may infer the location from explicit location-like hashtags (e.g., #Manila, #Kochi).
-	- Prefer concise place names and should the name or state, city, country, preferrebly city.
+
+	Guidance:
+	- Infer location from explicit location-like hashtags (e.g., #Manila, #Kochi) or text.
+	- Prefer concise place names (ideally city). Avoid long descriptions.
+	- Use lowercase for event_type values exactly as listed above.
 	
 	Post: "{post}"{extra}
 	"""

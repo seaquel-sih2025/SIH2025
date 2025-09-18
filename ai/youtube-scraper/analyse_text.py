@@ -21,7 +21,7 @@ load_dotenv()
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
-ALERT_THRESHOLD = 10
+ALERT_THRESHOLD = 2
 
 # --- Configure LangChain Google AI Client ---
 try:

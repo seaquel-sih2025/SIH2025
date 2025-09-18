@@ -53,7 +53,8 @@ ai/youtube-scraper/.env
 ai/.env
 ai/twitter-scraper/.env
 ai/twitter-scraper/config.py
-ai/venv/
+ai/.venv
+ai/venv
 *.pyc
 *.pyd
 venv/
@@ -75,3 +76,9 @@ backend/.env.production.local
 backend/.env.development
 backend/.env.test
 backend/.env.production
+ai/twitter-scraper/tatya
+ai/twitter-scraper/since_id.txt  
+tatya
+venv
+ai/youtube-scraper/.yt
+ai/youtube-scraper/yt-env

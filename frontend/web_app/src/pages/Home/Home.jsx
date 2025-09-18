@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross } from 'lucide-react';
 import MapView from '../../components/MapView.jsx';
+import Feed from '../../components/Feed';
 import { fetchHotspots, fetchRecentReports } from '../../services/hotspotService.js';
 
 const Home = () => {
@@ -184,6 +185,9 @@ const Home = () => {
               </div>
             </div>
           </div>
+
+          {/* AI Intelligence Feed */}
+          <Feed limit={12} />
 
           {/* Risk Assessment Card */}
           <div className="bg-slate-50 rounded-xl shadow-lg p-8">

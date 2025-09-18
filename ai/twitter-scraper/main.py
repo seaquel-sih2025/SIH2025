@@ -3,7 +3,7 @@ import time
 import random
 from twitter.fetch import fetch_tweets
 from llm.analyze import analyze_post_with_gemini
-from db.models import store_hazard_tweet
+from db.models import store_scraped_data
 
 # QUERY = 'lang:en (tsunami OR flood OR flooding OR cyclone OR hurricane OR typhoon OR "high waves" OR "storm surge" OR swell) (warning OR alert OR advisory OR watch OR evacuate OR evacuation OR hazard OR inundation) -is:retweet -is:reply -is:quote -giveaway -meme -politics -election -vote'
 
@@ -101,6 +101,14 @@ def main():
 					return True
 				if isinstance(ocean_hazard, str) and ocean_hazard.lower() in ("yes", "true", "1"):
 					return True
+				# Fallback: treat known ocean/coastal event types as hazards
+				event_type = str(payload.get("event_type", "")).lower().strip()
+				coastal_types = {
+					"tsunami", "high waves", "storm surge", "swell", "rip current",
+					"coastal erosion", "algal bloom", "pollution", "cyclone", "hurricane", "typhoon"
+				}
+				if event_type in coastal_types:
+					return True
 				return False
 
 			if is_hazard_from_llm(llm_json):
@@ -109,7 +117,7 @@ def main():
 					llm_json["location"] = place_name
 				llm_json["tweet_url"] = tweet_url
 				llm_json["tweet_created_at"] = tweet_created_at
-				store_hazard_tweet(llm_json)
+				store_scraped_data(llm_json)
 				print("Stored in DB.")
 			else:
 				print("Not a hazard, not stored.")

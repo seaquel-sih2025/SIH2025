@@ -133,7 +133,7 @@ def on_message_received(ch, method, properties, body):
     # Make a POST request to the backend's fan-in endpoint
     try:
         response = requests.post(
-            "http://localhost:8000/api/verifications/nlp",
+            f"{settings.BACKEND_URL}/api/verifications/nlp",
             json=verification_payload
         )
         response.raise_for_status() # Raise an exception for bad status codes

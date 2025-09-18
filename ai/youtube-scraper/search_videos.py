@@ -14,7 +14,7 @@ API_KEY = os.getenv('YOUTUBE_API_KEY')
 SEARCH_KEYWORDS = "tsunami | storm surge | coastal flood | cyclone | rogue wave"
 
 # How far back do we want to search? (in hours)
-SEARCH_TIMEFRAME_HOURS = 24
+SEARCH_TIMEFRAME_HOURS = 48
 # --- END CONFIGURATION ---
 
 
