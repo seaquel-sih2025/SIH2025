@@ -6,7 +6,7 @@ from sqlalchemy import func
 from uuid import uuid4
 import uuid
 
-from app.db.models import User, HazardType, Report
+from app.db.models import User, HazardType, Report, Media
 from app.db.session import get_db
 from app.models.pydantic_models import ReportSubmitResponse
 from app.services.rabbitmq_service import rabbitmq_service
@@ -112,3 +112,43 @@ async def list_hotspots(db: AsyncSession = Depends(get_db)):
         })
 
     return {"items": hotspots, "count": len(hotspots)}
+
+
+@router.get("/recent", summary="List recent reports with basic info")
+async def list_recent_reports(limit: int = 9, db: AsyncSession = Depends(get_db)):
+    """Return most recent reports with minimal fields for the dashboard.
+    Includes: id, hazard_type, status, created_at, user_description, user_city, thumbnail_url.
+    """
+    # Clamp limit to a reasonable range
+    safe_limit = max(1, min(limit, 24))
+
+    result = await db.execute(
+        select(Report).order_by(Report.created_at.desc()).limit(safe_limit)
+    )
+    reports = result.scalars().all()
+
+    items: List[dict] = []
+    for r in reports:
+        thumb_url = None
+        try:
+            # Fetch one media file (first by created_at) for thumbnail if available
+            m_res = await db.execute(
+                select(Media.file_url).where(Media.report_id == r.id).order_by(Media.created_at.asc()).limit(1)
+            )
+            mrow = m_res.first()
+            if mrow:
+                thumb_url = mrow[0]
+        except Exception:
+            thumb_url = None
+
+        items.append({
+            "id": str(r.id),
+            "hazard_type": r.user_hazard_type.value if hasattr(r.user_hazard_type, 'value') else str(r.user_hazard_type),
+            "status": r.status.value if hasattr(r.status, 'value') else str(r.status),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "user_description": r.user_description,
+            "user_city": r.user_city,
+            "thumbnail_url": thumb_url,
+        })
+
+    return {"items": items, "count": len(items)}

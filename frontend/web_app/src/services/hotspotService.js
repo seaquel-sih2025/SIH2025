@@ -19,3 +19,16 @@ export const fetchHotspots = async () => {
     createdAt: h.created_at,
   }));
 };
+
+export const fetchRecentReports = async (limit = 10) => {
+  const { data } = await api.get('/reports/recent', { params: { limit } });
+  return (data.items || []).map((r) => ({
+    id: r.id,
+    title: r.hazard_type || 'Hazard Report',
+    description: r.user_description || '',
+    status: r.status,
+    createdAt: r.created_at,
+    city: r.user_city || '',
+    thumbnailUrl: r.thumbnail_url || null,
+  }));
+};
