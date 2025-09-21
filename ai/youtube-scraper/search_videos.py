@@ -5,16 +5,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # --- CONFIGURATION ---
-# Load the .env file
-load_dotenv()
-API_KEY = os.getenv('YOUTUBE_API_KEY')
-
-# Define the keywords we are interested in.
-# The '|' acts as an 'OR' operator in the search query.
-SEARCH_KEYWORDS = "tsunami | storm surge | coastal flood | cyclone | rogue wave"
-
-# How far back do we want to search? (in hours)
-SEARCH_TIMEFRAME_HOURS = 48
+from config import YOUTUBE_API_KEY as API_KEY, SEARCH_KEYWORDS, SEARCH_TIMEFRAME_HOURS
 # --- END CONFIGURATION ---
 
 

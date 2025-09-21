@@ -1,25 +1,11 @@
-import os
 import psycopg2
 from psycopg2 import sql
-from dotenv import load_dotenv
-
+from config import POSTGRES
 
 DEFAULT_LIMIT = 20
 
 
 def main() -> None:
-    load_dotenv()
-
-    db_name = os.getenv('DB_NAME')
-    db_user = os.getenv('DB_USER')
-    db_password = os.getenv('DB_PASSWORD')
-    db_host = os.getenv('DB_HOST')
-    db_port = os.getenv('DB_PORT')
-
-    if not all([db_name, db_user, db_password, db_host, db_port]):
-        print("Missing one or more DB_* environment variables in .env.")
-        print("Required: DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT")
-        return
 
     limit_env = os.getenv('VIEW_ALERTS_LIMIT')
     try:
@@ -30,11 +16,11 @@ def main() -> None:
     conn = None
     try:
         conn = psycopg2.connect(
-            dbname=db_name,
-            user=db_user,
-            password=db_password,
-            host=db_host,
-            port=db_port,
+            host=POSTGRES["host"],
+            port=POSTGRES["port"],
+            database=POSTGRES["database"],
+            user=POSTGRES["user"],
+            password=POSTGRES["password"]
         )
         with conn.cursor() as cur:
             # Count total rows

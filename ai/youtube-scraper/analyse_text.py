@@ -2,11 +2,10 @@ import os
 import json
 import datetime
 import time
-from dotenv import load_dotenv
 # from google.generativeai import GenerativeModel  # replaced by LangChain wrapper
 import psycopg2
 from psycopg2 import sql
-from search_videos import search_for_videos, SEARCH_KEYWORDS, SEARCH_TIMEFRAME_HOURS
+from search_videos import search_for_videos
 from get_text_data import get_video_details
 
 # LangChain imports
@@ -17,11 +16,7 @@ from langchain.schema import HumanMessage
 from db_utils import ensure_schema, store_alert
 
 # --- CONFIGURATION ---
-load_dotenv()
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-
-ALERT_THRESHOLD = 2
+from config import YOUTUBE_API_KEY, GOOGLE_API_KEY, ALERT_THRESHOLD, SEARCH_KEYWORDS, SEARCH_TIMEFRAME_HOURS
 
 # --- Configure LangChain Google AI Client ---
 try:

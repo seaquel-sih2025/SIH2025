@@ -7,8 +7,7 @@ from googleapiclient.errors import HttpError
 from search_videos import search_for_videos, SEARCH_KEYWORDS, SEARCH_TIMEFRAME_HOURS
 
 # --- CONFIGURATION ---
-load_dotenv()
-API_KEY = os.getenv('YOUTUBE_API_KEY')
+from config import YOUTUBE_API_KEY as API_KEY
 # --- END CONFIGURATION ---
 
 

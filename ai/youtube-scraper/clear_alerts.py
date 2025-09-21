@@ -1,17 +1,15 @@
-import os
 import argparse
 import psycopg2
-from dotenv import load_dotenv
+from config import POSTGRES
 
 
 def get_conn():
-    load_dotenv()
     return psycopg2.connect(
-        dbname=os.getenv('DB_NAME'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        host=os.getenv('DB_HOST'),
-        port=os.getenv('DB_PORT'),
+        host=POSTGRES["host"],
+        port=POSTGRES["port"],
+        database=POSTGRES["database"],
+        user=POSTGRES["user"],
+        password=POSTGRES["password"]
     )
 
 
