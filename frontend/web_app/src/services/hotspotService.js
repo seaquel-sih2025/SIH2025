@@ -24,11 +24,13 @@ export const fetchRecentReports = async (limit = 10) => {
   const { data } = await api.get('/reports/recent', { params: { limit } });
   return (data.items || []).map((r) => ({
     id: r.id,
-    title: r.hazard_type || 'Hazard Report',
-    description: r.user_description || '',
+    hazard_type: r.hazard_type || 'hazard_report',
+    title: r.hazard_type?.replace('_', ' ') || 'Hazard Report',
+    user_description: r.user_description || '',
     status: r.status,
-    createdAt: r.created_at,
-    city: r.user_city || '',
-    thumbnailUrl: r.thumbnail_url || null,
+    created_at: r.created_at,
+    user_city: r.user_city || '',
+    user_name: r.user_name || 'Anonymous',
+    thumbnail_url: r.thumbnail_url || null,
   }));
 };

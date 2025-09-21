@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { submitReport } from '../../services/reportService';
 import { 
   MapPin, 
@@ -14,7 +14,9 @@ import {
   MicIcon,
   Play,
   Pause,
-  Square
+  Square,
+  Loader2,
+  Cross
 } from 'lucide-react';
 
 const Report = () => {
@@ -26,10 +28,16 @@ const Report = () => {
   const [audioBlob, setAudioBlob] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   
+  // Location state
+  const [myLocation, setMyLocation] = useState(null);
+  const [locationAllowed, setLocationAllowed] = useState(null);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  
   const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
+  const watchIdRef = useRef(null);
 
   const incidentTypes = [
     { value: 'usual_tides', label: 'Usual Tides' },
@@ -43,6 +51,118 @@ const Report = () => {
     { value: 'weather_alert', label: 'Weather Alert' },
     { value: 'other', label: 'Other' }
   ];
+
+  // Function to get current location
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  };
+
+  // Function to start location tracking
+  const startLocationTracking = () => {
+    if (!navigator.geolocation) {
+      setLocationAllowed(false);
+      return;
+    }
+
+    // Clear any existing watch
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        setMyLocation({ 
+          lat: position.coords.latitude, 
+          lng: position.coords.longitude 
+        });
+        setLocationAllowed(true);
+      },
+      (error) => {
+        console.error('Location tracking error:', error);
+        setLocationAllowed(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  // Function to stop location tracking
+  const stopLocationTracking = () => {
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setLocationAllowed(false);
+    setMyLocation(null);
+  };
+
+  // Function to handle GPS button click
+  const handleGPSButtonClick = async () => {
+    if (locationAllowed === true) {
+      // If GPS is active, stop tracking
+      stopLocationTracking();
+    } else {
+      // If GPS is inactive, request permission and start tracking
+      setIsRequestingLocation(true);
+      try {
+        const location = await getCurrentLocation();
+        setMyLocation(location);
+        setLocationAllowed(true);
+        startLocationTracking();
+      } catch (error) {
+        console.error('Failed to get location:', error);
+        setLocationAllowed(false);
+      } finally {
+        setIsRequestingLocation(false);
+      }
+    }
+  };
+
+  // Initial location request
+  useEffect(() => {
+    let active = true;
+    if (!navigator.geolocation) {
+      setLocationAllowed(false);
+      return () => {};
+    }
+    
+    getCurrentLocation()
+      .then((location) => {
+        if (!active) return;
+        setMyLocation(location);
+        setLocationAllowed(true);
+        startLocationTracking();
+      })
+      .catch(() => {
+        if (!active) return;
+        setLocationAllowed(false);
+      });
+    
+    return () => { 
+      active = false;
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
 
   const handleImageUpload = (event) => {
     const files = Array.from(event.target.files);
@@ -116,21 +236,14 @@ const Report = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Get geolocation
-      const position = await new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error('Geolocation is not supported by this browser.'));
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000,
-        });
-      });
+      // Check if location is available
+      if (!myLocation || !locationAllowed) {
+        alert('Please enable GPS to submit a report with location data.');
+        return;
+      }
 
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
+      const latitude = myLocation.lat;
+      const longitude = myLocation.lng;
 
       await submitReport({
         activityType: selectedIncidentType,
@@ -172,12 +285,54 @@ const Report = () => {
             </div>
             
             {/* GPS Status */}
-            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center shadow-lg">
-              <MapPin className="w-4 h-4 mr-2" />
-              GPS Active
-            </div>
+            <button
+              onClick={handleGPSButtonClick}
+              disabled={isRequestingLocation}
+              className={`px-4 py-2 rounded-full text-sm font-medium flex items-center transition-all duration-200 shadow-lg ${
+                locationAllowed === true
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:shadow-xl'
+                  : locationAllowed === false
+                  ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 hover:shadow-xl'
+                  : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600 hover:shadow-xl'
+              } ${isRequestingLocation ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              {isRequestingLocation ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Requesting...
+                </>
+              ) : locationAllowed === true ? (
+                <>
+                  <MapPin className="w-4 h-4 mr-2" />
+                  GPS Active
+                </>
+              ) : locationAllowed === false ? (
+                <>
+                  <Cross className="w-4 h-4 mr-2" />
+                  GPS Inactive
+                </>
+              ) : (
+                <>
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Enable GPS
+                </>
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Location Status Card */}
+        {locationAllowed && myLocation && (
+          <div className="mb-6 bg-blue-50 rounded-xl border border-blue-200 p-4">
+            <div className="flex items-center text-sm text-blue-800">
+              <MapPin className="w-4 h-4 mr-2" />
+              <span className="font-medium">Report Location:</span>
+              <span className="ml-2 font-mono">
+                {myLocation.lat.toFixed(6)}, {myLocation.lng.toFixed(6)}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-8">
           {/* Main Content - Left Side */}

@@ -10,10 +10,11 @@ const mapUserTypeToRole = (userType) => {
   return mapping[userType] || 'citizen';
 };
 
-export const register = async ({ email, full_name, password, userType }) => {
+export const register = async ({ email, full_name, phone, password, userType }) => {
   const payload = {
     email,
     full_name,
+    phone,
     password,
     role: mapUserTypeToRole(userType),
   };

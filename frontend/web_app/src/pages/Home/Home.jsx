@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross, Loader2 } from 'lucide-react';
 import MapView from '../../components/MapView.jsx';
 import Feed from '../../components/Feed';
 import { fetchHotspots, fetchRecentReports } from '../../services/hotspotService.js';
+import { getMediaUrl, getPlaceholderImageUrl } from '../../utils/imageUtils';
 
 const Home = () => {
   const [hotspots, setHotspots] = useState([]);
@@ -10,8 +11,10 @@ const Home = () => {
   const [hotspotError, setHotspotError] = useState('');
   const [myLocation, setMyLocation] = useState(null); // { lat, lng }
   const [locationAllowed, setLocationAllowed] = useState(null); // null|true|false
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [recentReports, setRecentReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const watchIdRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -44,26 +47,116 @@ const Home = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Request location permission and current position
+  // Function to get current location
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  };
+
+  // Function to start location tracking
+  const startLocationTracking = () => {
+    if (!navigator.geolocation) {
+      setLocationAllowed(false);
+      return;
+    }
+
+    // Clear any existing watch
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        setMyLocation({ 
+          lat: position.coords.latitude, 
+          lng: position.coords.longitude 
+        });
+        setLocationAllowed(true);
+      },
+      (error) => {
+        console.error('Location tracking error:', error);
+        setLocationAllowed(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  // Function to stop location tracking
+  const stopLocationTracking = () => {
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setLocationAllowed(false);
+    setMyLocation(null);
+  };
+
+  // Function to handle GPS button click
+  const handleGPSButtonClick = async () => {
+    if (locationAllowed === true) {
+      // If GPS is active, stop tracking
+      stopLocationTracking();
+    } else {
+      // If GPS is inactive, request permission and start tracking
+      setIsRequestingLocation(true);
+      try {
+        const location = await getCurrentLocation();
+        setMyLocation(location);
+        setLocationAllowed(true);
+        startLocationTracking();
+      } catch (error) {
+        console.error('Failed to get location:', error);
+        setLocationAllowed(false);
+      } finally {
+        setIsRequestingLocation(false);
+      }
+    }
+  };
+
+  // Initial location request
   useEffect(() => {
     let active = true;
     if (!navigator.geolocation) {
       setLocationAllowed(false);
       return () => {};
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    
+    getCurrentLocation()
+      .then((location) => {
         if (!active) return;
-        setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setMyLocation(location);
         setLocationAllowed(true);
-      },
-      () => {
+        startLocationTracking();
+      })
+      .catch(() => {
         if (!active) return;
         setLocationAllowed(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-    );
-    return () => { active = false; };
+      });
+    
+    return () => { 
+      active = false;
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -97,10 +190,39 @@ const Home = () => {
                 <MapPin className="w-6 h-6 text-blue-800 mr-3" />
                 <h2 className="text-xl font-semibold text-blue-800">Current Location</h2>
               </div>
-              <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center">
-                <MapPin className="w-4 h-4 mr-1" />
-                GPS Active
-              </div>
+              <button
+                onClick={handleGPSButtonClick}
+                disabled={isRequestingLocation}
+                className={`px-4 py-2 rounded-full text-sm font-medium flex items-center transition-all duration-200 ${
+                  locationAllowed === true
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-md hover:shadow-lg'
+                    : locationAllowed === false
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-md hover:shadow-lg'
+                    : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600 shadow-md hover:shadow-lg'
+                } ${isRequestingLocation ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                {isRequestingLocation ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    Requesting...
+                  </>
+                ) : locationAllowed === true ? (
+                  <>
+                    <MapPin className="w-4 h-4 mr-1" />
+                    GPS Active
+                  </>
+                ) : locationAllowed === false ? (
+                  <>
+                    <Cross className="w-4 h-4 mr-1" />
+                    GPS Inactive
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-4 h-4 mr-1" />
+                    Enable GPS
+                  </>
+                )}
+              </button>
             </div>
             
             {/* Map Container */}
@@ -121,6 +243,19 @@ const Home = () => {
                 ) : null}
               </div>
             </div>
+            
+            {/* Location Coordinates Display */}
+            {locationAllowed && myLocation && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center text-sm text-blue-800">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  <span className="font-medium">Current Position:</span>
+                  <span className="ml-2 font-mono">
+                    {myLocation.lat.toFixed(6)}, {myLocation.lng.toFixed(6)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Recent Reports Card */
@@ -142,7 +277,7 @@ const Home = () => {
                   recentReports.map((r) => (
                     <div key={r.id} className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-transform duration-200 hover:scale-[1.01] relative flex flex-col h-full min-w-[280px] max-w-[320px] snap-start">
                       <div className="mb-2">
-                      <h3 className="font-bold text-gray-900 text-lg leading-tight">{r.title}</h3>
+                      <h3 className="font-bold text-gray-900 text-lg leading-tight">{r.hazard_type?.replace('_', ' ') || 'Hazard Report'}</h3>
                     </div>
                       <div className="mb-4">
                         <div className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium items-center text-white ${r.status === 'verified' ? 'bg-green-600' : r.status === 'under_verification' ? 'bg-yellow-500' : 'bg-red-600'}` }>
@@ -150,14 +285,25 @@ const Home = () => {
                           {r.status?.replace('_', ' ') || 'status'}
                         </div>
                       </div>
-                    {r.description ? (
-                      <p className="text-gray-700 text-base mb-6 leading-relaxed line-clamp-4">{r.description}</p>
+                    {r.user_description ? (
+                      <p className="text-gray-700 text-base mb-6 leading-relaxed line-clamp-4">{r.user_description}</p>
                     ) : null}
                     <div className="h-48 rounded-xl overflow-hidden mb-6 flex-grow bg-gray-100">
-                      {r.thumbnailUrl ? (
-                        <img src={r.thumbnailUrl} alt={r.title} className="w-full h-full object-cover" />
+                      {r.thumbnail_url ? (
+                        <img 
+                          src={getMediaUrl(r.thumbnail_url)} 
+                          alt={r.hazard_type} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = getPlaceholderImageUrl('media');
+                          }}
+                        />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">No media</div>
+                        <img 
+                          src={getPlaceholderImageUrl('media')} 
+                          alt="No media" 
+                          className="w-full h-full object-cover"
+                        />
                       )}
                     </div>
                     <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
@@ -166,12 +312,12 @@ const Home = () => {
                           <Users className="w-4 h-4 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">{r.city || 'Community'}</p>
-                          <p className="text-xs text-gray-500">Reporter</p>
+                          <p className="font-semibold text-gray-900 text-sm">{r.user_name || 'Anonymous'}</p>
+                          <p className="text-xs text-gray-500">{r.user_city || 'Community'}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-600">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}</p>
+                        <p className="text-sm font-medium text-gray-600">{r.created_at ? new Date(r.created_at).toLocaleString() : ''}</p>
                         <p className="text-xs text-gray-500">Created</p>
                       </div>
                     </div>
