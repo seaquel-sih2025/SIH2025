@@ -7,6 +7,7 @@ from app.db.models import UserRole, HazardType
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str
+    phone: str | None = None
 
 class UserCreate(UserBase):
     password: str
@@ -16,6 +17,20 @@ class UserRead(UserBase):
     id: UUID
     role: UserRole
     is_active: bool
+    bio: str | None = None
+    location: str | None = None
+    profile_picture: str | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+    bio: str | None = None
+    location: str | None = None
+    profile_picture: str | None = None
 
     class Config:
         from_attributes = True

@@ -55,14 +55,28 @@ async def main():
             
         else:
             print("❌ Unknown command. Available commands:")
-            print("  python create_tables.py fresh   - Create fresh database (destroys data)")
-            print("  python create_tables.py migrate - Run migrations only (preserves data)")
-            print("  python create_tables.py reset   - Reset with latest schema (destroys data)")
+            print("  python create_tables_enhanced.py fresh   - Create fresh database (destroys data)")
+            print("  python create_tables_enhanced.py migrate - Run migrations only (preserves data)")
+            print("  python create_tables_enhanced.py reset   - Reset with latest schema (destroys data)")
     else:
-        # Default behavior - run migrations (safer default)
-        print("🔄 Running database migrations (default behavior)...")
-        print("💡 Use 'python create_tables.py fresh' to create fresh database")
-        await run_migrations()
+        # Default behavior - ask user what they want to do
+        print("🔧 Database Management Tool")
+        print("Choose an option:")
+        print("1. Create fresh database (⚠️  DESTROYS existing data)")
+        print("2. Run migrations only (✅ Preserves existing data)")
+        print("3. Reset with latest schema (⚠️  DESTROYS existing data)")
+        
+        choice = input("Enter your choice (1-3): ").strip()
+        
+        if choice == "1":
+            await create_all_tables()
+        elif choice == "2":
+            await run_migrations()
+        elif choice == "3":
+            await create_all_tables()
+            await run_migrations()
+        else:
+            print("❌ Invalid choice. Exiting.")
 
 if __name__ == "__main__":
     asyncio.run(main())
