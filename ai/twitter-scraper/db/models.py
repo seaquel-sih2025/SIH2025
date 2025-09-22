@@ -19,45 +19,29 @@ def create_table():
     conn = get_connection()
     cur = conn.cursor()
     
-    # Base table creation
+    # Drop existing table to ensure clean creation with proper constraints
+    cur.execute("DROP TABLE IF EXISTS scraped_data;")
+    
+    # Create table with proper SERIAL primary key
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS scraped_data (
+    CREATE TABLE scraped_data (
         id SERIAL PRIMARY KEY,
         event_type TEXT,
         location TEXT,
         urgency TEXT,
-        sentiment TEXT
+        sentiment TEXT,
+        source_url TEXT,
+        source_created_at TIMESTAMP WITH TIME ZONE,
+        source_date DATE,
+        source_time TIME,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
     """)
-
-    # Idempotent migration to rename old 'tweet_*' columns to 'source_*' if they exist
-    cur.execute("""
-    DO $$
-    BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scraped_data' AND column_name='tweet_url') THEN
-            ALTER TABLE scraped_data RENAME COLUMN tweet_url TO source_url;
-        END IF;
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scraped_data' AND column_name='tweet_created_at') THEN
-            ALTER TABLE scraped_data RENAME COLUMN tweet_created_at TO source_created_at;
-        END IF;
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scraped_data' AND column_name='tweet_date') THEN
-            ALTER TABLE scraped_data RENAME COLUMN tweet_date TO source_date;
-        END IF;
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scraped_data' AND column_name='tweet_time') THEN
-            ALTER TABLE scraped_data RENAME COLUMN tweet_time TO source_time;
-        END IF;
-    END;
-    $$;
-    """)
-
-    # Idempotent migration to add new columns if they don't exist
-    cur.execute("""
-    ALTER TABLE scraped_data
-        ADD COLUMN IF NOT EXISTS source_url TEXT,
-        ADD COLUMN IF NOT EXISTS source_created_at TIMESTAMP WITH TIME ZONE,
-        ADD COLUMN IF NOT EXISTS source_date DATE,
-        ADD COLUMN IF NOT EXISTS source_time TIME;
-    """)
+    
+    print("✅ Created scraped_data table with proper SERIAL ID column")
+    conn.commit()
+    cur.close()
+    conn.close()
     
     conn.commit()
     cur.close()

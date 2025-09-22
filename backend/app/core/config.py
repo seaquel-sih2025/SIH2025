@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 class Settings(BaseSettings):
     """
@@ -21,6 +22,21 @@ class Settings(BaseSettings):
     AWS_S3_REGION: str
 
     WEATHERAPI_KEY: str
+    
+    # --- AI/LLM Settings ---
+    GEMINI_API_KEY: str
+    
+    # --- Backend URL ---
+    BACKEND_URL: str
+    
+    # --- Firebase Settings ---
+    FIREBASE_PROJECT_ID: str
+    FIREBASE_PRIVATE_KEY_ID: Optional[str] = None
+    FIREBASE_PRIVATE_KEY: Optional[str] = None
+    FIREBASE_CLIENT_EMAIL: Optional[str] = None
+    FIREBASE_CLIENT_ID: Optional[str] = None
+    FIREBASE_AUTH_URI: str
+    FIREBASE_TOKEN_URI: str
 
     model_config = SettingsConfigDict(env_file=".env")
 

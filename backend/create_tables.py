@@ -1,6 +1,7 @@
 import asyncio
 import os
 from pathlib import Path
+from sqlalchemy import text
 from app.db.session import engine
 from app.db.models import Base
 
@@ -24,9 +25,23 @@ async def run_migrations():
     with open(migration_file, 'r') as f:
         migration_sql = f.read()
     
+    # Split the SQL into individual statements
+    # Remove comments and empty lines, then split by semicolon
+    statements = []
+    for line in migration_sql.split('\n'):
+        line = line.strip()
+        if line and not line.startswith('--'):
+            statements.append(line)
+    
+    # Join lines and split by semicolon to get individual commands
+    full_sql = ' '.join(statements)
+    individual_statements = [stmt.strip() for stmt in full_sql.split(';') if stmt.strip()]
+    
     async with engine.begin() as conn:
         print("🔄 Running migrations...")
-        await conn.execute(migration_sql)
+        for i, statement in enumerate(individual_statements, 1):
+            print(f"   Executing statement {i}/{len(individual_statements)}")
+            await conn.execute(text(statement))
         print("✅ Migrations completed successfully!")
         return True
 
