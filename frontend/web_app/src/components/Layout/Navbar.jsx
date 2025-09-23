@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock } from 'lucide-react';
+import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock, Check, X } from 'lucide-react';
 import notificationService from '../../services/notificationService';
 
 const Navbar = () => {
@@ -78,15 +78,40 @@ const Navbar = () => {
 
   // Format time for display
   const formatTime = (timeString) => {
-    const date = new Date(timeString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
+    try {
+      // Parse the timestamp from backend
+      let date = new Date(timeString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid time';
+      }
+      
+      // Add 5 hours and 30 minutes (IST offset)
+      date.setHours(date.getHours() + 5);
+      date.setMinutes(date.getMinutes() + 30);
+      
+      // Format as time in 12-hour format with AM/PM
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error, 'for timestamp:', timeString);
+      return 'Invalid time';
+    }
+  };
 
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString();
+  // Handle notification actions
+  const handleVerify = (notificationId) => {
+    console.log('Verifying notification:', notificationId);
+    // TODO: Implement verify API call
+  };
+
+  const handleDeny = (notificationId) => {
+    console.log('Denying notification:', notificationId);
+    // TODO: Implement deny API call
   };
 
   const handleSignOut = () => {
@@ -204,7 +229,7 @@ const Navbar = () => {
                       </div>
                     ) : (
                       notifications.map((notification) => (
-                        <div key={notification.id} className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                        <div key={notification.id} className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50">
                           <div className="flex items-start space-x-3">
                             {/* Notification Image */}
                             <div className="flex-shrink-0">
@@ -224,7 +249,7 @@ const Navbar = () => {
                             {/* Notification Content */}
                             <div className="flex-1 min-w-0">
                               {/* Hazard Name & Time */}
-                              <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center justify-between mb-2">
                                 <h4 className="text-sm font-semibold text-gray-900 flex items-center">
                                   <AlertTriangle className="w-4 h-4 text-red-500 mr-1" />
                                   {notification.hazardName}
@@ -235,10 +260,23 @@ const Navbar = () => {
                                 </span>
                               </div>
 
-                              {/* Description */}
-                              <p className="text-sm text-gray-600 line-clamp-2">
-                                {notification.description}
-                              </p>
+                              {/* Action Buttons */}
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => handleVerify(notification.id)}
+                                  className="flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200 transition-colors"
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Verify
+                                </button>
+                                <button
+                                  onClick={() => handleDeny(notification.id)}
+                                  className="flex items-center px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-md hover:bg-red-200 transition-colors"
+                                >
+                                  <X className="w-3 h-3 mr-1" />
+                                  Deny
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>

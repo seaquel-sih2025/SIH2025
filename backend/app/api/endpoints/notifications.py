@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func, and_
 from typing import List, Dict, Any
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.db.session import get_db
 from app.db.models import User, Report, HazardType, ReportStatus
@@ -182,23 +182,32 @@ async def get_recent_notifications(limit: int = 10, db: AsyncSession = Depends(g
     for report, user_name in recent_reports:
         # Map hazard types to readable names
         hazard_name_map = {
-            'flood': 'Flooding',
-            'cyclone': 'Cyclone',
-            'coastal_erosion': 'Coastal Erosion',
-            'coastal_flooding': 'Coastal Flooding',
-            'storm_surge': 'Storm Surge',
-            'tsunami': 'Tsunami',
-            'oil_spill': 'Oil Spill',
-            'other': 'Other Hazard'
+            'Tsunami': 'Tsunami',
+            'High Waves / Swell': 'High Waves / Swell',
+            'Coastal Flooding': 'Coastal Flooding',
+            'Storm Surge': 'Storm Surge',
+            'Rip Current': 'Rip Current',
+            'Coastal Erosion': 'Coastal Erosion',
+            'Water Discoloration / Algal Bloom': 'Water Discoloration / Algal Bloom',
+            'Marine Debris / Pollution': 'Marine Debris / Pollution',
+            'Other': 'Other Hazard'
         }
         
-        hazard_name = hazard_name_map.get(report.user_hazard_type.value, 'Unknown Hazard')
+        hazard_name = hazard_name_map.get(report.user_hazard_type, 'Unknown Hazard')
+        
+        # Format time to ensure proper timezone handling
+        if report.created_at.tzinfo is None:
+            # If no timezone info, assume UTC and add timezone
+            time_with_tz = report.created_at.replace(tzinfo=timezone.utc)
+        else:
+            # Convert to UTC if not already
+            time_with_tz = report.created_at.astimezone(timezone.utc)
         
         notifications.append({
             "id": str(report.id),
             "hazardName": hazard_name,
             "description": report.user_description or f"New {hazard_name.lower()} report",
-            "time": report.created_at.isoformat(),
+            "time": time_with_tz.isoformat(),
             "user": user_name,
             "status": report.status.value,
             "confidence": report.final_confidence_score,

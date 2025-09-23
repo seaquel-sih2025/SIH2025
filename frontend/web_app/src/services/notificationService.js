@@ -101,15 +101,24 @@ export const getNotifications = async (limit = 10) => {
     console.log('[NotificationService] Raw notifications from backend:', notificationsList);
     
     // Extract and format notifications
-    const formattedNotifications = notificationsList.map(notification => ({
-      id: notification.id,
-      hazardName: notification.hazardName || 'Ocean Alert',
-      time: notification.time,
-      description: notification.description || 'A new hazard has been reported in your area',
-      image: notification.image || null
-    }));
+    const formattedNotifications = notificationsList.map(notification => {
+      const formattedNotification = {
+        id: notification.id,
+        hazardName: notification.hazardName || HAZARD_TYPE_MAPPING[notification.type] || 'Ocean Alert', 
+        time: notification.time || notification.created_at,
+        description: notification.description || 'A new hazard has been reported in your area',
+        image: notification.image || null
+      };
+      
+      console.log('[NotificationService] Processing notification:', {
+        raw: notification,
+        formatted: formattedNotification
+      });
+      
+      return formattedNotification;
+    });
 
-    console.log('[NotificationService] Formatted notifications:', formattedNotifications);
+    console.log('[NotificationService] Final formatted notifications:', formattedNotifications);
     
     return formattedNotifications;
   } catch (error) {
