@@ -161,10 +161,42 @@ export const testPeerNotification = async () => {
   }
 };
 
+/**
+ * Verify a report notification
+ * @param {string} reportId - The ID of the report to verify
+ * @returns {Promise<Object>} - Response from verify endpoint
+ */
+export const verifyReport = async (reportId) => {
+  try {
+    const { data } = await api.post(`/notifications/verify/${reportId}`);
+    return data;
+  } catch (error) {
+    console.error('Error verifying report:', error);
+    throw error;
+  }
+};
+
+/**
+ * Deny a report notification
+ * @param {string} reportId - The ID of the report to deny
+ * @returns {Promise<Object>} - Response from deny endpoint
+ */
+export const denyReport = async (reportId) => {
+  try {
+    const { data } = await api.post(`/notifications/deny/${reportId}`);
+    return data;
+  } catch (error) {
+    console.error('Error denying report:', error);
+    throw error;
+  }
+};
+
 export default {
   getNotifications,
   getNotificationCount,
   testPeerNotification,
+  verifyReport,
+  denyReport,
   // Real-time notification functions
   onNewNotification: (callback) => notificationManager.addListener(callback),
   offNewNotification: (callback) => notificationManager.removeListener(callback),

@@ -104,14 +104,51 @@ const Navbar = () => {
   };
 
   // Handle notification actions
-  const handleVerify = (notificationId) => {
-    console.log('Verifying notification:', notificationId);
-    // TODO: Implement verify API call
+  const handleVerify = async (notificationId) => {
+    try {
+      console.log('Verifying notification:', notificationId);
+      const response = await notificationService.verifyReport(notificationId);
+      console.log('Verify response:', response);
+      
+      // Update the notification list after successful verification
+      setNotifications(prevNotifications => 
+        prevNotifications.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, confidence: response.new_confidence }
+            : notification
+        )
+      );
+      
+      // Optionally show a success message
+      // You could add a toast notification here
+      
+    } catch (error) {
+      console.error('Error verifying notification:', error);
+      // Optionally show an error message
+    }
   };
 
-  const handleDeny = (notificationId) => {
-    console.log('Denying notification:', notificationId);
-    // TODO: Implement deny API call
+  const handleDeny = async (notificationId) => {
+    try {
+      console.log('Denying notification:', notificationId);
+      const response = await notificationService.denyReport(notificationId);
+      console.log('Deny response:', response);
+      
+      // Remove the notification from the list after denial
+      setNotifications(prevNotifications => 
+        prevNotifications.filter(notification => notification.id !== notificationId)
+      );
+      
+      // Update notification count
+      setNotificationCount(prevCount => Math.max(0, prevCount - 1));
+      
+      // Optionally show a success message
+      // You could add a toast notification here
+      
+    } catch (error) {
+      console.error('Error denying notification:', error);
+      // Optionally show an error message
+    }
   };
 
   const handleSignOut = () => {
