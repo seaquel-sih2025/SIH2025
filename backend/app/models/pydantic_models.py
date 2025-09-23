@@ -55,3 +55,25 @@ class VerificationCreate(BaseModel):
     """
     report_id: UUID
     result_data: dict = Field(..., example={"condition": "Rain", "temp_celsius": 25.5})
+
+
+
+
+# Add these classes to your existing backend/app/models/pydantic_models.py file
+
+from typing import List, Dict, Any
+
+class PeerNotificationCreate(BaseModel):
+    report_id: UUID
+    latitude: float
+    longitude: float
+    hazard_type: str
+    notification_type: str = "new_report_alert"
+    message: str
+    priority: str = "normal"
+
+class PeerNotificationResponse(BaseModel):
+    message: str
+    report_id: UUID
+    notifications_sent: int
+    recipient_details: List[Dict[str, Any]]

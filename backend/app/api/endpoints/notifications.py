@@ -1,0 +1,172 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func, and_
+from typing import List, Dict, Any
+import uuid
+from datetime import datetime
+
+from app.db.session import get_db
+from app.db.models import User, Report, HazardType
+from app.models.pydantic_models import PeerNotificationCreate, PeerNotificationResponse
+
+router = APIRouter()
+
+async def find_nearby_users(
+    latitude: float, 
+    longitude: float, 
+    radius_km: float = 50,
+    db: AsyncSession = None
+) -> List[User]:
+    """Find users within a specified radius of a location."""
+    # Create a point from the given coordinates
+    point = f'SRID=4326;POINT({longitude} {latitude})'
+    
+    # Query for users within the radius
+    # Note: This is a simplified approach - you might want to add a location field to users
+    # For now, we'll return all active users as potential notification recipients
+    result = await db.execute(
+        select(User).where(
+            and_(
+                User.is_active == True,
+                User.role == "citizen"
+            )
+        ).limit(100)  # Limit to prevent overwhelming notifications
+    )
+    
+    return result.scalars().all()
+
+@router.get("/count", summary="Get notification count for current user")
+async def get_notification_count():
+    """
+    Get the count of unread notifications for the current user.
+    This is a mock implementation - you'll need to implement actual notification storage.
+    """
+    # Mock data for now
+    return {
+        "unread_count": 3,
+        "total_count": 15,
+        "last_updated": datetime.utcnow().isoformat()
+    }
+
+@router.post("/peer", response_model=PeerNotificationResponse, status_code=201)
+async def receive_peer_notification(
+    notification_data: PeerNotificationCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint to receive peer notification data from the worker.
+    This will process the notification and determine which users to notify.
+    """
+    try:
+        # Validate that the report exists
+        report = await db.get(Report, notification_data.report_id)
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Report with ID {notification_data.report_id} not found."
+            )
+        
+        # Find nearby users who should receive this notification
+        nearby_users = await find_nearby_users(
+            notification_data.latitude,
+            notification_data.longitude,
+            radius_km=50,  # 50km radius
+            db=db
+        )
+        
+        # Filter out the user who created the report
+        nearby_users = [user for user in nearby_users if user.id != report.user_id]
+        
+        # Here you would typically:
+        # 1. Create notification records in your database
+        # 2. Send push notifications to mobile apps
+        # 3. Send emails or SMS if configured
+        # 4. Update real-time notification feeds
+        
+        # For now, we'll just log and return the response
+        print(f"[Peer Notifications] Found {len(nearby_users)} users to notify about {notification_data.hazard_type} report")
+        
+        # Mock notification sending (replace with actual notification service)
+        notifications_sent = []
+        for user in nearby_users[:10]:  # Limit to first 10 users for this example
+            notification_record = {
+                "user_id": str(user.id),
+                "user_email": user.email,
+                "message": notification_data.message,
+                "hazard_type": notification_data.hazard_type,
+                "distance_km": "< 50",  # You'd calculate actual distance here
+                "sent_at": datetime.utcnow().isoformat()
+            }
+            notifications_sent.append(notification_record)
+            
+            # Here you would send actual notifications:
+            # - Push notification to mobile app
+            # - Email notification
+            # - In-app notification
+            print(f"  - [Mock] Notifying {user.full_name} ({user.email})")
+        
+        response = PeerNotificationResponse(
+            message=f"Peer notification processed for report {notification_data.report_id}",
+            report_id=notification_data.report_id,
+            notifications_sent=len(notifications_sent),
+            recipient_details=notifications_sent
+        )
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error processing peer notification: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process peer notification: {str(e)}"
+        )
+
+@router.get("/test-peer", summary="Test endpoint for peer notifications")
+async def test_peer_notification(db: AsyncSession = Depends(get_db)):
+    """Test endpoint to verify the peer notification system is working."""
+    
+    # Get a sample report to test with
+    result = await db.execute(
+        select(Report).limit(1)
+    )
+    sample_report = result.scalars().first()
+    
+    if not sample_report:
+        raise HTTPException(status_code=404, detail="No reports found for testing")
+    
+    # Extract coordinates from the PostGIS point
+    # This is a simplified extraction - you might need ST_X and ST_Y functions
+    test_data = PeerNotificationCreate(
+        report_id=sample_report.id,
+        latitude=12.9716,  # Bangalore coordinates for testing
+        longitude=77.5946,
+        hazard_type=sample_report.user_hazard_type.value,
+        notification_type="test",
+        message="Test peer notification",
+        priority="low"
+    )
+    
+    return await receive_peer_notification(test_data, db)
+
+@router.get("/recent", summary="Get recent notifications")
+async def get_recent_notifications(limit: int = 10):
+    """Get recent notifications for the current user."""
+    # Mock data - implement with actual notification storage
+    mock_notifications = []
+    for i in range(min(limit, 5)):
+        mock_notifications.append({
+            "id": f"notif_{i}",
+            "title": f"Ocean Alert #{i+1}",
+            "message": "A new hazard has been reported in your area",
+            "type": "hazard_alert",
+            "is_read": i > 2,
+            "created_at": datetime.utcnow().isoformat(),
+            "priority": "normal"
+        })
+    
+    return {
+        "notifications": mock_notifications,
+        "count": len(mock_notifications),
+        "has_more": False
+    }

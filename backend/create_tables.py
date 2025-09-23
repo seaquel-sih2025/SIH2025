@@ -5,14 +5,23 @@ from sqlalchemy import text
 from app.db.session import engine
 from app.db.models import Base
 
+from sqlalchemy import text
+
 async def create_all_tables():
     """Connects to the database and creates all tables."""
     async with engine.begin() as conn:
-        print("Dropping all existing tables...")
-        await conn.run_sync(Base.metadata.drop_all)
+        print("Dropping all existing tables (with CASCADE)...")
+        
+        # Use text() to wrap the SQL statements
+        await conn.execute(text("DROP TABLE IF EXISTS reports CASCADE;"))
+        await conn.execute(text("DROP TABLE IF EXISTS media CASCADE;"))
+        await conn.execute(text("DROP TABLE IF EXISTS verifications CASCADE;"))
+        await conn.execute(text("DROP TABLE IF EXISTS notifications CASCADE;"))
+        
         print("Creating new tables...")
         await conn.run_sync(Base.metadata.create_all)
         print("Tables created successfully.")
+
 
 async def run_migrations():
     """Run database migrations to add new fields."""
