@@ -4,10 +4,10 @@ from sqlalchemy.future import select
 from sqlalchemy import func, and_
 from typing import List, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.db.session import get_db
-from app.db.models import User, Report, HazardType
+from app.db.models import User, Report, HazardType, ReportStatus
 from app.models.pydantic_models import PeerNotificationCreate, PeerNotificationResponse
 
 router = APIRouter()
@@ -37,15 +37,30 @@ async def find_nearby_users(
     return result.scalars().all()
 
 @router.get("/count", summary="Get notification count for current user")
-async def get_notification_count():
+async def get_notification_count(db: AsyncSession = Depends(get_db)):
     """
     Get the count of unread notifications for the current user.
-    This is a mock implementation - you'll need to implement actual notification storage.
+    Returns the count of recent verified reports that can be considered as notifications.
     """
-    # Mock data for now
+    # Get count of recent verified reports (last 7 days) as notifications
+    recent_cutoff = datetime.utcnow() - timedelta(days=7)
+    
+    result = await db.execute(
+        select(func.count(Report.id)).where(
+            Report.created_at >= recent_cutoff
+        )
+    )
+    recent_reports_count = result.scalar() or 0
+    
+    # Get total reports count
+    total_result = await db.execute(
+        select(func.count(Report.id))
+    )
+    total_count = total_result.scalar() or 0
+    
     return {
-        "unread_count": 3,
-        "total_count": 15,
+        "unread_count": recent_reports_count,
+        "total_count": total_count,
         "last_updated": datetime.utcnow().isoformat()
     }
 
@@ -150,23 +165,45 @@ async def test_peer_notification(db: AsyncSession = Depends(get_db)):
     return await receive_peer_notification(test_data, db)
 
 @router.get("/recent", summary="Get recent notifications")
-async def get_recent_notifications(limit: int = 10):
-    """Get recent notifications for the current user."""
-    # Mock data - implement with actual notification storage
-    mock_notifications = []
-    for i in range(min(limit, 5)):
-        mock_notifications.append({
-            "id": f"notif_{i}",
-            "title": f"Ocean Alert #{i+1}",
-            "message": "A new hazard has been reported in your area",
-            "type": "hazard_alert",
-            "is_read": i > 2,
-            "created_at": datetime.utcnow().isoformat(),
-            "priority": "normal"
+async def get_recent_notifications(limit: int = 10, db: AsyncSession = Depends(get_db)):
+    """Get recent notifications based on recent verified reports."""
+    # Get recent verified reports to show as notifications
+    recent_cutoff = datetime.utcnow() - timedelta(days=7)
+    
+    result = await db.execute(
+        select(Report, User.full_name).join(User).where(
+            Report.created_at >= recent_cutoff
+        ).order_by(Report.created_at.desc()).limit(limit)
+    )
+    recent_reports = result.all()
+    
+    # Convert reports to notification format
+    notifications = []
+    for report, user_name in recent_reports:
+        # Map hazard types to readable names
+        hazard_name_map = {
+            'flood': 'Flooding',
+            'cyclone': 'Cyclone',
+            'coastal_erosion': 'Coastal Erosion',
+            'coastal_flooding': 'Coastal Flooding',
+            'storm_surge': 'Storm Surge',
+            'tsunami': 'Tsunami',
+            'oil_spill': 'Oil Spill',
+            'other': 'Other Hazard'
+        }
+        
+        hazard_name = hazard_name_map.get(report.user_hazard_type.value, 'Unknown Hazard')
+        
+        notifications.append({
+            "id": str(report.id),
+            "hazardName": hazard_name,
+            "description": report.user_description or f"New {hazard_name.lower()} report",
+            "time": report.created_at.isoformat(),
+            "user": user_name,
+            "status": report.status.value,
+            "confidence": report.final_confidence_score,
+            "location": report.user_city or "Unknown location",
+            "image": None  # You can add media URL here if needed
         })
     
-    return {
-        "notifications": mock_notifications,
-        "count": len(mock_notifications),
-        "has_more": False
-    }
+    return notifications

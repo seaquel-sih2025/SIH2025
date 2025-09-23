@@ -1,12 +1,93 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, User, Bell, Settings, Languages } from 'lucide-react';
+import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock } from 'lucide-react';
+import notificationService from '../../services/notificationService';
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const notificationRef = useRef(null);
 
   const isLoggedIn = Boolean(localStorage.getItem('authToken'));
+
+  // Load initial notifications and start real-time updates
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadNotifications();
+      
+      // Set up real-time notification listener
+      const handleNewNotifications = (newNotifications) => {
+        console.log('[Navbar] Received new notifications:', newNotifications);
+        setNotifications(newNotifications);
+        setNotificationCount(newNotifications.length);
+      };
+
+      // Start real-time notifications
+      notificationService.onNewNotification(handleNewNotifications);
+      notificationService.startRealTimeNotifications();
+
+      // Cleanup on unmount
+      return () => {
+        notificationService.offNewNotification(handleNewNotifications);
+        notificationService.stopRealTimeNotifications();
+      };
+    }
+  }, [isLoggedIn]);
+
+  // Load notifications from backend
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      console.log('[Navbar] Loading notifications...');
+      
+      const [notificationsData, countData] = await Promise.all([
+        notificationService.getNotifications(10),
+        notificationService.getNotificationCount()
+      ]);
+      
+      console.log('[Navbar] Loaded notifications data:', notificationsData);
+      console.log('[Navbar] Loaded count data:', countData);
+      
+      setNotifications(notificationsData);
+      setNotificationCount(countData.unread_count);
+    } catch (error) {
+      console.error('[Navbar] Error loading notifications:', error);
+      // Fallback to empty state
+      setNotifications([]);
+      setNotificationCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Format time for display
+  const formatTime = (timeString) => {
+    const date = new Date(timeString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
 
   const handleSignOut = () => {
     localStorage.removeItem('authToken');
@@ -76,10 +157,108 @@ const Navbar = () => {
             <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md">
               <Languages className="w-5 h-5" />
             </button>
-            <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            
+            {/* Notification Bell with Dropdown */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative"
+              >
+                <Bell className="w-5 h-5" />
+                {notificationCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+                      <button 
+                        onClick={() => {
+                          console.log('[Navbar] Manual refresh clicked');
+                          loadNotifications();
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {loading ? 'Loading...' : `${notificationCount} new alerts`}
+                    </p>
+                  </div>
+
+                  {/* Notification List */}
+                  <div className="max-h-96 overflow-y-auto">
+                    {loading ? (
+                      <div className="px-4 py-8 text-center text-gray-500">
+                        Loading notifications...
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-gray-500">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div key={notification.id} className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                          <div className="flex items-start space-x-3">
+                            {/* Notification Image */}
+                            <div className="flex-shrink-0">
+                              {notification.image ? (
+                                <img 
+                                  src={notification.image} 
+                                  alt={notification.hazardName}
+                                  className="w-12 h-12 rounded-lg object-cover bg-red-100"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
+                                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notification Content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Hazard Name & Time */}
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                                  <AlertTriangle className="w-4 h-4 text-red-500 mr-1" />
+                                  {notification.hazardName}
+                                </h4>
+                                <span className="text-xs text-gray-500 flex items-center">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {formatTime(notification.time)}
+                                </span>
+                              </div>
+
+                              {/* Description */}
+                              <p className="text-sm text-gray-600 line-clamp-2">
+                                {notification.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-3 border-t border-gray-200">
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      View All Notifications
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md">
               <Settings className="w-5 h-5" />
             </button>
