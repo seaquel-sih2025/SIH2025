@@ -216,3 +216,96 @@ async def get_recent_notifications(limit: int = 10, db: AsyncSession = Depends(g
         })
     
     return notifications
+
+@router.post("/verify/{report_id}", summary="Verify a report notification")
+async def verify_report(report_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Verify a report by increasing its confidence score.
+    This simulates community verification of the report.
+    """
+    try:
+        # Get the report
+        report_uuid = uuid.UUID(report_id)
+        report = await db.get(Report, report_uuid)
+        
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Report with ID {report_id} not found"
+            )
+        
+        # Increase confidence score by 10% (or set minimum increase of 0.1)
+        current_score = report.final_confidence_score or 0.0
+        confidence_increase = max(0.1, current_score * 0.1)
+        new_score = min(1.0, current_score + confidence_increase)
+        
+        # Update the report
+        report.final_confidence_score = new_score
+        
+        # Commit the changes
+        await db.commit()
+        await db.refresh(report)
+        
+        return {
+            "message": "Report verified successfully",
+            "report_id": report_id,
+            "previous_confidence": current_score,
+            "new_confidence": new_score,
+            "increase": confidence_increase
+        }
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid report ID format"
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to verify report: {str(e)}"
+        )
+
+@router.post("/deny/{report_id}", summary="Deny a report notification")
+async def deny_report(report_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Deny a report. This keeps the confidence score the same but logs the denial.
+    In a real system, you might track denials to identify false reports.
+    """
+    try:
+        # Get the report
+        report_uuid = uuid.UUID(report_id)
+        report = await db.get(Report, report_uuid)
+        
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Report with ID {report_id} not found"
+            )
+        
+        # Keep confidence score the same (as requested)
+        current_score = report.final_confidence_score or 0.0
+        
+        # In a real system, you might:
+        # - Add a denial record to track community feedback
+        # - Decrease confidence score if multiple denials
+        # - Flag report for manual review
+        # For now, we just return the current state
+        
+        return {
+            "message": "Report denial recorded",
+            "report_id": report_id,
+            "confidence_score": current_score,
+            "status": "denied_by_user"
+        }
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid report ID format"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process denial: {str(e)}"
+        )
