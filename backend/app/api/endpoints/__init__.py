@@ -5,5 +5,6 @@ from . import verifications
 from . import feed
 from . import users
 from . import notifications
+from . import safety_circles
 
-__all__ = ["auth", "reports", "verifications", "feed", "users", "notifications"]
+__all__ = ["auth", "reports", "verifications", "feed", "users", "notifications", "safety_circles"]

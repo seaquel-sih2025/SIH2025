@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock, Check, X } from 'lucide-react';
+import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock, Shield, Check, X } from 'lucide-react';
 import notificationService from '../../services/notificationService';
-import SafetyStatusModal from '../SafetyStatusModal';
 
 const Navbar = () => {
   const location = useLocation();
@@ -11,9 +10,9 @@ const Navbar = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [verifiedNotifications, setVerifiedNotifications] = useState(new Set()); // Track which notifications are verified
   const notificationRef = useRef(null);
-  const [showSafetyModal, setShowSafetyModal] = useState(false);
-  const [selectedNotificationForSafety, setSelectedNotificationForSafety] = useState(null);
+
 
   const isLoggedIn = Boolean(localStorage.getItem('authToken'));
 
@@ -106,62 +105,196 @@ const Navbar = () => {
     }
   };
 
-  const handleVerify = async (notificationId) => {
-  try {
+  // Function to get current location (same as Report component)
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  };
+
+  const handleVerify = (notificationId) => {
     console.log('Verifying notification:', notificationId);
-    const response = await notificationService.verifyReport(notificationId);
-    console.log('Verify response:', response);
-    
-    // Update the notification list after successful verification
+    // Add notification to verified set to show safety buttons
+    setVerifiedNotifications(prev => new Set([...prev, notificationId]));
+  };
+
+  const handleReject = (notificationId) => {
+    console.log('Rejecting notification:', notificationId);
+    // Remove notification from list immediately
     setNotifications(prevNotifications => 
-      prevNotifications.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, confidence: response.new_confidence }
-          : notification
-      )
+      prevNotifications.filter(notification => notification.id !== notificationId)
     );
     
-    // Show safety status modal after verification
-    const notification = notifications.find(n => n.id === notificationId);
-    if (notification) {
-      setSelectedNotificationForSafety(notification);
-      setShowSafetyModal(true);
-    }
-    
-  } catch (error) {
-    console.error('Error verifying notification:', error);
-  }
-};
+    // Update notification count
+    setNotificationCount(prevCount => Math.max(0, prevCount - 1));
+  };
 
-const handleSafetyStatusUpdate = (result) => {
-  console.log('Safety status updated:', result);
-  // Optionally update map or show confirmation
-  // You could dispatch an event to update the map component
-  window.dispatchEvent(new CustomEvent('safetyZoneCreated', { detail: result }));
-};
-
-  const handleDeny = async (notificationId) => {
+  const handleSafe = async (notificationId) => {
     try {
-      console.log('Denying notification:', notificationId);
-      const response = await notificationService.denyReport(notificationId);
-      console.log('Deny response:', response);
+      console.log('User marked as safe for notification:', notificationId);
       
-      // Remove the notification from the list after denial
+      // Get user location
+      const location = await getCurrentLocation();
+      
+      // Send safety circle data to backend
+      const authToken = localStorage.getItem('authToken');
+      const safetyCircleData = {
+        notification_id: notificationId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        is_safe: true,
+        color: '#10B981' // green for safe
+      };
+
+      try {
+        const response = await fetch('/api/safety-circles/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(safetyCircleData)
+        });
+
+        if (response.ok) {
+          console.log('Safety circle saved to database');
+        } else {
+          console.error('Failed to save safety circle to database');
+        }
+      } catch (dbError) {
+        console.error('Error saving to database:', dbError);
+        // Continue with frontend display even if DB save fails
+      }
+      
+      // Dispatch map event to show green circle
+      const mapEvent = new CustomEvent('addSafetyCircle', {
+        detail: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          isSafe: true,
+          color: '#10B981', // green for safe
+          timestamp: Date.now(),
+          reportId: notificationId
+        }
+      });
+      window.dispatchEvent(mapEvent);
+      
+      // Remove notification from list
       setNotifications(prevNotifications => 
         prevNotifications.filter(notification => notification.id !== notificationId)
       );
       
+      // Remove from verified set
+      setVerifiedNotifications(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(notificationId);
+        return newSet;
+      });
+      
       // Update notification count
       setNotificationCount(prevCount => Math.max(0, prevCount - 1));
       
-      // Optionally show a success message
-      // You could add a toast notification here
+      // Show success message
+      alert('Thank you! You\'ve been marked as Safe. A green safety zone has been created around your location.');
       
     } catch (error) {
-      console.error('Error denying notification:', error);
-      // Optionally show an error message
+      console.error('Error getting location for safety status:', error);
+      alert('Unable to get your location. Please enable location services and try again.');
     }
   };
+
+  const handleNotSafe = async (notificationId) => {
+    try {
+      console.log('User marked as not safe for notification:', notificationId);
+      
+      // Get user location
+      const location = await getCurrentLocation();
+      
+      // Send safety circle data to backend
+      const authToken = localStorage.getItem('authToken');
+      const safetyCircleData = {
+        notification_id: notificationId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        is_safe: false,
+        color: '#8B5CF6' // purple for not safe
+      };
+
+      try {
+        const response = await fetch('/api/safety-circles/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(safetyCircleData)
+        });
+
+        if (response.ok) {
+          console.log('Safety circle saved to database');
+        } else {
+          console.error('Failed to save safety circle to database');
+        }
+      } catch (dbError) {
+        console.error('Error saving to database:', dbError);
+        // Continue with frontend display even if DB save fails
+      }
+      
+      // Dispatch map event to show purple circle
+      const mapEvent = new CustomEvent('addSafetyCircle', {
+        detail: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          isSafe: false,
+          color: '#8B5CF6', // purple for not safe
+          timestamp: Date.now(),
+          reportId: notificationId
+        }
+      });
+      window.dispatchEvent(mapEvent);
+      
+      // Remove notification from list
+      setNotifications(prevNotifications => 
+        prevNotifications.filter(notification => notification.id !== notificationId)
+      );
+      
+      // Remove from verified set
+      setVerifiedNotifications(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(notificationId);
+        return newSet;
+      });
+      
+      // Update notification count
+      setNotificationCount(prevCount => Math.max(0, prevCount - 1));
+      
+      // Show message
+      alert('Thank you for your response. Stay safe!');
+      
+    } catch (error) {
+      console.error('Error getting location for not safe response:', error);
+      alert('Unable to get your location. Please enable location services and try again.');
+    }
+  };
+
+
 
   const handleSignOut = () => {
     localStorage.removeItem('authToken');
@@ -309,22 +442,45 @@ const handleSafetyStatusUpdate = (result) => {
                                 </span>
                               </div>
 
-                              {/* Action Buttons */}
+                              {/* Conditional Buttons */}
                               <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => handleVerify(notification.id)}
-                                  className="flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200 transition-colors"
-                                >
-                                  <Check className="w-3 h-3 mr-1" />
-                                  Verify
-                                </button>
-                                <button
-                                  onClick={() => handleDeny(notification.id)}
-                                  className="flex items-center px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-md hover:bg-red-200 transition-colors"
-                                >
-                                  <X className="w-3 h-3 mr-1" />
-                                  Deny
-                                </button>
+                                {!verifiedNotifications.has(notification.id) ? (
+                                  // Initial Verify/Reject buttons
+                                  <>
+                                    <button
+                                      onClick={() => handleVerify(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200 transition-colors"
+                                    >
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Verify
+                                    </button>
+                                    <button
+                                      onClick={() => handleReject(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-md hover:bg-red-200 transition-colors"
+                                    >
+                                      <X className="w-3 h-3 mr-1" />
+                                      Reject
+                                    </button>
+                                  </>
+                                ) : (
+                                  // Safety Status buttons after verification
+                                  <>
+                                    <button
+                                      onClick={() => handleSafe(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200 transition-colors"
+                                    >
+                                      <Shield className="w-3 h-3 mr-1" />
+                                      I'm Safe
+                                    </button>
+                                    <button
+                                      onClick={() => handleNotSafe(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 transition-colors"
+                                    >
+                                      <AlertTriangle className="w-3 h-3 mr-1" />
+                                      I'm Not Safe
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -375,15 +531,6 @@ const handleSafetyStatusUpdate = (result) => {
           </div>
         </div>
       </div>
-      <SafetyStatusModal
-  isOpen={showSafetyModal}
-  onClose={() => {
-    setShowSafetyModal(false);
-    setSelectedNotificationForSafety(null);
-  }}
-  notification={selectedNotificationForSafety}
-  onStatusUpdate={handleSafetyStatusUpdate}
-/>
     </nav>
   );
 };

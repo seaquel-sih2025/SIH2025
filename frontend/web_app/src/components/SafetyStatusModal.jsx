@@ -6,26 +6,61 @@ const SafetyStatusModal = ({ isOpen, onClose, notification, onStatusUpdate }) =>
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
 
-  // Get current location when modal opens
-  React.useEffect(() => {
-    if (isOpen && !location) {
+  // Function to get current location (same as Report component)
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser.'));
+        return;
+      }
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
+          resolve({
             latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
           });
         },
         (error) => {
-          console.error('Error getting location:', error);
-          // Use default location or show error
-          setLocation({ latitude: 12.9716, longitude: 77.5946 }); // Bangalore
-        }
+          reject(error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
       );
+    });
+  };
+
+  // Get current location when modal opens
+  React.useEffect(() => {
+    if (isOpen && !location) {
+      getCurrentLocation()
+        .then((loc) => {
+          setLocation(loc);
+        })
+        .catch((error) => {
+          console.error('Error getting location:', error);
+          alert('Location is required for safety responses. Please enable location access and try again.');
+        });
     }
   }, [isOpen]);
 
   const handleStatusSubmit = async (isSafe) => {
+    // Handle "I'm not safe" responses
+    if (!isSafe) {
+      // Notify parent component to remove notification
+      if (onStatusUpdate) {
+        onStatusUpdate({
+          notificationId: notification.id,
+          action: 'not_safe',
+          removeFromList: true
+        });
+      }
+      
+      alert('Thank you for your response.');
+      onClose();
+      return;
+    }
+
     if (!location) {
       alert('Unable to get your location. Please enable location services.');
       return;
@@ -33,38 +68,37 @@ const SafetyStatusModal = ({ isOpen, onClose, notification, onStatusUpdate }) =>
 
     setLoading(true);
     try {
-      const statusData = {
-        report_id: notification.id,
-        is_safe: isSafe,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        message: `User reported they are ${isSafe ? 'safe' : 'not safe'} in response to ${notification.hazardName}`
-      };
-
-      // Call API to update safety status
-      const response = await fetch('/api/notifications/safety-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify(statusData)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        onStatusUpdate && onStatusUpdate(result);
+      // Only for "I'm safe" - dispatch map event to show green circle
+      if (isSafe) {
+        const mapEvent = new CustomEvent('addSafetyCircle', {
+          detail: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            isSafe: true,
+            color: '#10B981', // green for safe
+            timestamp: Date.now(),
+            reportId: notification.report_id || notification.id
+          }
+        });
+        window.dispatchEvent(mapEvent);
         
         // Show success message
-        alert(`Thank you! You've been marked as ${isSafe ? 'Safe' : 'Not Safe'}. ${isSafe ? 'A green safety zone' : 'A danger zone'} has been created around your location.`);
-        
-        onClose();
-      } else {
-        throw new Error('Failed to update safety status');
+        alert('Thank you! You\'ve been marked as Safe. A green safety zone has been created around your location.');
       }
+      
+      // Notify parent component to remove notification
+      if (onStatusUpdate) {
+        onStatusUpdate({
+          notificationId: notification.id,
+          action: isSafe ? 'safe' : 'not_safe',
+          removeFromList: true
+        });
+      }
+      
+      onClose();
     } catch (error) {
-      console.error('Error updating safety status:', error);
-      alert('Failed to update your safety status. Please try again.');
+      console.error('Error handling safety status:', error);
+      alert('There was an error processing your response. Please try again.');
     } finally {
       setLoading(false);
     }

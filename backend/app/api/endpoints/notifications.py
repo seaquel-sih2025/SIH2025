@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.db.session import get_db
-from app.db.models import User, Report, HazardType, ReportStatus
+from app.db.models import User, Report, HazardType, ReportStatus, SafetyCircle
 from app.models.pydantic_models import PeerNotificationCreate, PeerNotificationResponse
 from app.api.dependencies import get_current_user
 
@@ -42,40 +42,50 @@ async def find_nearby_users(
         )
         
         users = result.scalars().all()
-        
-        # Log for debugging
-        print(f"[find_nearby_users] Found {len(users)} active citizens for location {latitude}, {longitude}")
-        
         return users
         
     except Exception as e:
-        print(f"[find_nearby_users] Error: {e}")
         return []
     
 @router.get("/count", summary="Get notification count for current user")
-async def get_notification_count(db: AsyncSession = Depends(get_db)):
+async def get_notification_count(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Get the count of unread notifications for the current user.
-    Returns the count of recent verified reports that can be considered as notifications.
+    Returns the count of recent verified reports that the user hasn't responded to yet.
     """
     # Get count of recent verified reports (last 7 days) as notifications
     recent_cutoff = datetime.utcnow() - timedelta(days=7)
     
+    # First, get all report IDs that the current user has already responded to
+    user_responses = await db.execute(
+        select(SafetyCircle.notification_id).where(
+            SafetyCircle.user_id == current_user.id
+        )
+    )
+    responded_report_ids = {row[0] for row in user_responses.fetchall()}
+    
+    # Get count of recent reports, excluding those the user has already responded to
     result = await db.execute(
         select(func.count(Report.id)).where(
-            Report.created_at >= recent_cutoff
+            and_(
+                Report.created_at >= recent_cutoff,
+                ~Report.id.in_(responded_report_ids)  # Exclude reports user has responded to
+            )
         )
     )
     recent_reports_count = result.scalar() or 0
     
-    # Get total reports count
+    # Get total reports count (for reference)
     total_result = await db.execute(
         select(func.count(Report.id))
     )
     total_count = total_result.scalar() or 0
     
     return {
-        "unread_count": recent_reports_count,
+        "unread_count": recent_reports_count,  # Now shows only unresponded notifications
         "total_count": total_count,
         "last_updated": datetime.utcnow().isoformat()
     }
@@ -115,9 +125,6 @@ async def receive_peer_notification(
         # 3. Send emails or SMS if configured
         # 4. Update real-time notification feeds
         
-        # For now, we'll just log and return the response
-        print(f"[Peer Notifications] Found {len(nearby_users)} users to notify about {notification_data.hazard_type} report")
-        
         # Mock notification sending (replace with actual notification service)
         notifications_sent = []
         for user in nearby_users[:10]:  # Limit to first 10 users for this example
@@ -130,12 +137,6 @@ async def receive_peer_notification(
                 "sent_at": datetime.utcnow().isoformat()
             }
             notifications_sent.append(notification_record)
-            
-            # Here you would send actual notifications:
-            # - Push notification to mobile app
-            # - Email notification
-            # - In-app notification
-            print(f"  - [Mock] Notifying {user.full_name} ({user.email})")
         
         response = PeerNotificationResponse(
             message=f"Peer notification processed for report {notification_data.report_id}",
@@ -147,7 +148,6 @@ async def receive_peer_notification(
         return response
         
     except Exception as e:
-        print(f"Error processing peer notification: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process peer notification: {str(e)}"
@@ -181,14 +181,30 @@ async def test_peer_notification(db: AsyncSession = Depends(get_db)):
     return await receive_peer_notification(test_data, db)
 
 @router.get("/recent", summary="Get recent notifications")
-async def get_recent_notifications(limit: int = 10, db: AsyncSession = Depends(get_db)):
+async def get_recent_notifications(
+    limit: int = 10, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get recent notifications based on recent verified reports."""
     # Get recent verified reports to show as notifications
     recent_cutoff = datetime.utcnow() - timedelta(days=7)
     
+    # First, get all report IDs that the current user has already responded to
+    user_responses = await db.execute(
+        select(SafetyCircle.notification_id).where(
+            SafetyCircle.user_id == current_user.id
+        )
+    )
+    responded_report_ids = {row[0] for row in user_responses.fetchall()}
+    
+    # Get recent reports, excluding those the user has already responded to
     result = await db.execute(
         select(Report, User.full_name).join(User).where(
-            Report.created_at >= recent_cutoff
+            and_(
+                Report.created_at >= recent_cutoff,
+                ~Report.id.in_(responded_report_ids)  # Exclude reports user has responded to
+            )
         ).order_by(Report.created_at.desc()).limit(limit)
     )
     recent_reports = result.all()
