@@ -1,12 +1,300 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, User, Bell, Settings, Languages } from 'lucide-react';
+import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock, Shield, Check, X } from 'lucide-react';
+import notificationService from '../../services/notificationService';
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [verifiedNotifications, setVerifiedNotifications] = useState(new Set()); // Track which notifications are verified
+  const notificationRef = useRef(null);
+
 
   const isLoggedIn = Boolean(localStorage.getItem('authToken'));
+
+  // Load initial notifications and start real-time updates
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadNotifications();
+      
+      // Set up real-time notification listener
+      const handleNewNotifications = (newNotifications) => {
+        console.log('[Navbar] Received new notifications:', newNotifications);
+        setNotifications(newNotifications);
+        setNotificationCount(newNotifications.length);
+      };
+
+      // Start real-time notifications
+      notificationService.onNewNotification(handleNewNotifications);
+      notificationService.startRealTimeNotifications();
+
+      // Cleanup on unmount
+      return () => {
+        notificationService.offNewNotification(handleNewNotifications);
+        notificationService.stopRealTimeNotifications();
+      };
+    }
+  }, [isLoggedIn]);
+
+  // Load notifications from backend
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      console.log('[Navbar] Loading notifications...');
+      
+      const [notificationsData, countData] = await Promise.all([
+        notificationService.getNotifications(10),
+        notificationService.getNotificationCount()
+      ]);
+      
+      console.log('[Navbar] Loaded notifications data:', notificationsData);
+      console.log('[Navbar] Loaded count data:', countData);
+      
+      setNotifications(notificationsData);
+      setNotificationCount(countData.unread_count);
+    } catch (error) {
+      console.error('[Navbar] Error loading notifications:', error);
+      // Fallback to empty state
+      setNotifications([]);
+      setNotificationCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Format time for display
+  const formatTime = (timeString) => {
+    try {
+      // Parse the timestamp from backend
+      let date = new Date(timeString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid time';
+      }
+      
+      // Add 5 hours and 30 minutes (IST offset)
+      date.setHours(date.getHours() + 5);
+      date.setMinutes(date.getMinutes() + 30);
+      
+      // Format as time in 12-hour format with AM/PM
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error, 'for timestamp:', timeString);
+      return 'Invalid time';
+    }
+  };
+
+  // Function to get current location (same as Report component)
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          reject(error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  };
+
+  const handleVerify = (notificationId) => {
+    console.log('Verifying notification:', notificationId);
+    // Add notification to verified set to show safety buttons
+    setVerifiedNotifications(prev => new Set([...prev, notificationId]));
+  };
+
+  const handleReject = (notificationId) => {
+    console.log('Rejecting notification:', notificationId);
+    // Remove notification from list immediately
+    setNotifications(prevNotifications => 
+      prevNotifications.filter(notification => notification.id !== notificationId)
+    );
+    
+    // Update notification count
+    setNotificationCount(prevCount => Math.max(0, prevCount - 1));
+  };
+
+  const handleSafe = async (notificationId) => {
+    try {
+      console.log('User marked as safe for notification:', notificationId);
+      
+      // Get user location
+      const location = await getCurrentLocation();
+      
+      // Send safety circle data to backend
+      const authToken = localStorage.getItem('authToken');
+      const safetyCircleData = {
+        notification_id: notificationId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        is_safe: true,
+        color: '#10B981' // green for safe
+      };
+
+      try {
+        const response = await fetch('/api/safety-circles/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(safetyCircleData)
+        });
+
+        if (response.ok) {
+          console.log('Safety circle saved to database');
+        } else {
+          console.error('Failed to save safety circle to database');
+        }
+      } catch (dbError) {
+        console.error('Error saving to database:', dbError);
+        // Continue with frontend display even if DB save fails
+      }
+      
+      // Dispatch map event to show green circle
+      const mapEvent = new CustomEvent('addSafetyCircle', {
+        detail: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          isSafe: true,
+          color: '#10B981', // green for safe
+          timestamp: Date.now(),
+          reportId: notificationId
+        }
+      });
+      window.dispatchEvent(mapEvent);
+      
+      // Remove notification from list
+      setNotifications(prevNotifications => 
+        prevNotifications.filter(notification => notification.id !== notificationId)
+      );
+      
+      // Remove from verified set
+      setVerifiedNotifications(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(notificationId);
+        return newSet;
+      });
+      
+      // Update notification count
+      setNotificationCount(prevCount => Math.max(0, prevCount - 1));
+      
+      // Show success message
+      alert('Thank you! You\'ve been marked as Safe. A green safety zone has been created around your location.');
+      
+    } catch (error) {
+      console.error('Error getting location for safety status:', error);
+      alert('Unable to get your location. Please enable location services and try again.');
+    }
+  };
+
+  const handleNotSafe = async (notificationId) => {
+    try {
+      console.log('User marked as not safe for notification:', notificationId);
+      
+      // Get user location
+      const location = await getCurrentLocation();
+      
+      // Send safety circle data to backend
+      const authToken = localStorage.getItem('authToken');
+      const safetyCircleData = {
+        notification_id: notificationId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        is_safe: false,
+        color: '#8B5CF6' // purple for not safe
+      };
+
+      try {
+        const response = await fetch('/api/safety-circles/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(safetyCircleData)
+        });
+
+        if (response.ok) {
+          console.log('Safety circle saved to database');
+        } else {
+          console.error('Failed to save safety circle to database');
+        }
+      } catch (dbError) {
+        console.error('Error saving to database:', dbError);
+        // Continue with frontend display even if DB save fails
+      }
+      
+      // Dispatch map event to show purple circle
+      const mapEvent = new CustomEvent('addSafetyCircle', {
+        detail: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          isSafe: false,
+          color: '#8B5CF6', // purple for not safe
+          timestamp: Date.now(),
+          reportId: notificationId
+        }
+      });
+      window.dispatchEvent(mapEvent);
+      
+      // Remove notification from list
+      setNotifications(prevNotifications => 
+        prevNotifications.filter(notification => notification.id !== notificationId)
+      );
+      
+      // Remove from verified set
+      setVerifiedNotifications(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(notificationId);
+        return newSet;
+      });
+      
+      // Update notification count
+      setNotificationCount(prevCount => Math.max(0, prevCount - 1));
+      
+      // Show message
+      alert('Thank you for your response. Stay safe!');
+      
+    } catch (error) {
+      console.error('Error getting location for not safe response:', error);
+      alert('Unable to get your location. Please enable location services and try again.');
+    }
+  };
+
+
 
   const handleSignOut = () => {
     localStorage.removeItem('authToken');
@@ -76,10 +364,144 @@ const Navbar = () => {
             <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md">
               <Languages className="w-5 h-5" />
             </button>
-            <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            
+            {/* Notification Bell with Dropdown */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative"
+              >
+                <Bell className="w-5 h-5" />
+                {notificationCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-[9999]">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+                      <button 
+                        onClick={() => {
+                          console.log('[Navbar] Manual refresh clicked');
+                          loadNotifications();
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {loading ? 'Loading...' : `${notificationCount} new alerts`}
+                    </p>
+                  </div>
+
+                  {/* Notification List */}
+                  <div className="max-h-96 overflow-y-auto">
+                    {loading ? (
+                      <div className="px-4 py-8 text-center text-gray-500">
+                        Loading notifications...
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-gray-500">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div key={notification.id} className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50">
+                          <div className="flex items-start space-x-3">
+                            {/* Notification Image */}
+                            <div className="flex-shrink-0">
+                              {notification.image ? (
+                                <img 
+                                  src={notification.image} 
+                                  alt={notification.hazardName}
+                                  className="w-12 h-12 rounded-lg object-cover bg-red-100"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
+                                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notification Content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Hazard Name & Time */}
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                                  <AlertTriangle className="w-4 h-4 text-red-500 mr-1" />
+                                  {notification.hazardName}
+                                </h4>
+                                <span className="text-xs text-gray-500 flex items-center">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {formatTime(notification.time)}
+                                </span>
+                              </div>
+
+                              {/* Conditional Buttons */}
+                              <div className="flex items-center space-x-2">
+                                {!verifiedNotifications.has(notification.id) ? (
+                                  // Initial Verify/Reject buttons
+                                  <>
+                                    <button
+                                      onClick={() => handleVerify(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200 transition-colors"
+                                    >
+                                      <Check className="w-3 h-3 mr-1" />
+                                      Verify
+                                    </button>
+                                    <button
+                                      onClick={() => handleReject(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-md hover:bg-red-200 transition-colors"
+                                    >
+                                      <X className="w-3 h-3 mr-1" />
+                                      Reject
+                                    </button>
+                                  </>
+                                ) : (
+                                  // Safety Status buttons after verification
+                                  <>
+                                    <button
+                                      onClick={() => handleSafe(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md hover:bg-green-200 transition-colors"
+                                    >
+                                      <Shield className="w-3 h-3 mr-1" />
+                                      I'm Safe
+                                    </button>
+                                    <button
+                                      onClick={() => handleNotSafe(notification.id)}
+                                      className="flex items-center px-3 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-md hover:bg-purple-200 transition-colors"
+                                    >
+                                      <AlertTriangle className="w-3 h-3 mr-1" />
+                                      I'm Not Safe
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-3 border-t border-gray-200">
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      View All Notifications
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md">
               <Settings className="w-5 h-5" />
             </button>

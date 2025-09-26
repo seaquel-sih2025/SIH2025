@@ -6,6 +6,7 @@ import Report from './pages/Report';
 import Community from './pages/Community';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import OfflineSync from './components/OfflineSync';
 import './App.css';
 
 function App() {
@@ -37,6 +38,8 @@ function App() {
           <Route path="auth" element={isLoggedIn ? <Navigate to="/" replace /> : <Auth />} />
         </Route>
       </Routes>
+      {/* Show offline sync status for logged-in users */}
+      {isLoggedIn && <OfflineSync />}
     </Router>
   );
 }

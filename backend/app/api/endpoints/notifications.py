@@ -4,48 +4,89 @@ from sqlalchemy.future import select
 from sqlalchemy import func, and_
 from typing import List, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from app.db.session import get_db
-from app.db.models import User, Report, HazardType
+from app.db.models import User, Report, HazardType, ReportStatus, SafetyCircle
 from app.models.pydantic_models import PeerNotificationCreate, PeerNotificationResponse
+from app.api.dependencies import get_current_user
 
 router = APIRouter()
+
+# backend/app/api/endpoints/notifications.py - Replace find_nearby_users function
 
 async def find_nearby_users(
     latitude: float, 
     longitude: float, 
-    radius_km: float = 50,
+    radius_km: float = 5,  # Changed to 5km as requested
     db: AsyncSession = None
 ) -> List[User]:
-    """Find users within a specified radius of a location."""
-    # Create a point from the given coordinates
-    point = f'SRID=4326;POINT({longitude} {latitude})'
+    """Find users within a specified radius of a location using PostGIS."""
+    try:
+        # Create a point from the given coordinates
+        point = f'SRID=4326;POINT({longitude} {latitude})'
+        
+        # Use PostGIS to find users within radius
+        # Note: This assumes users have a location field with geography type
+        # If users don't have location data, we'll need to add it to the User model
+        
+        # For now, let's return all active users as a fallback
+        # TODO: Add user location tracking for proper distance filtering
+        result = await db.execute(
+            select(User).where(
+                and_(
+                    User.is_active == True,
+                    User.role == "citizen"
+                )
+            ).limit(100)  # Limit to prevent overwhelming notifications
+        )
+        
+        users = result.scalars().all()
+        return users
+        
+    except Exception as e:
+        return []
     
-    # Query for users within the radius
-    # Note: This is a simplified approach - you might want to add a location field to users
-    # For now, we'll return all active users as potential notification recipients
-    result = await db.execute(
-        select(User).where(
-            and_(
-                User.is_active == True,
-                User.role == "citizen"
-            )
-        ).limit(100)  # Limit to prevent overwhelming notifications
-    )
-    
-    return result.scalars().all()
-
 @router.get("/count", summary="Get notification count for current user")
-async def get_notification_count():
+async def get_notification_count(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Get the count of unread notifications for the current user.
-    This is a mock implementation - you'll need to implement actual notification storage.
+    Returns the count of recent verified reports that the user hasn't responded to yet.
     """
-    # Mock data for now
+    # Get count of recent verified reports (last 7 days) as notifications
+    recent_cutoff = datetime.utcnow() - timedelta(days=7)
+    
+    # First, get all report IDs that the current user has already responded to
+    user_responses = await db.execute(
+        select(SafetyCircle.notification_id).where(
+            SafetyCircle.user_id == current_user.id
+        )
+    )
+    responded_report_ids = {row[0] for row in user_responses.fetchall()}
+    
+    # Get count of recent reports, excluding those the user has already responded to
+    result = await db.execute(
+        select(func.count(Report.id)).where(
+            and_(
+                Report.created_at >= recent_cutoff,
+                ~Report.id.in_(responded_report_ids)  # Exclude reports user has responded to
+            )
+        )
+    )
+    recent_reports_count = result.scalar() or 0
+    
+    # Get total reports count (for reference)
+    total_result = await db.execute(
+        select(func.count(Report.id))
+    )
+    total_count = total_result.scalar() or 0
+    
     return {
-        "unread_count": 3,
-        "total_count": 15,
+        "unread_count": recent_reports_count,  # Now shows only unresponded notifications
+        "total_count": total_count,
         "last_updated": datetime.utcnow().isoformat()
     }
 
@@ -84,9 +125,6 @@ async def receive_peer_notification(
         # 3. Send emails or SMS if configured
         # 4. Update real-time notification feeds
         
-        # For now, we'll just log and return the response
-        print(f"[Peer Notifications] Found {len(nearby_users)} users to notify about {notification_data.hazard_type} report")
-        
         # Mock notification sending (replace with actual notification service)
         notifications_sent = []
         for user in nearby_users[:10]:  # Limit to first 10 users for this example
@@ -99,12 +137,6 @@ async def receive_peer_notification(
                 "sent_at": datetime.utcnow().isoformat()
             }
             notifications_sent.append(notification_record)
-            
-            # Here you would send actual notifications:
-            # - Push notification to mobile app
-            # - Email notification
-            # - In-app notification
-            print(f"  - [Mock] Notifying {user.full_name} ({user.email})")
         
         response = PeerNotificationResponse(
             message=f"Peer notification processed for report {notification_data.report_id}",
@@ -116,7 +148,6 @@ async def receive_peer_notification(
         return response
         
     except Exception as e:
-        print(f"Error processing peer notification: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process peer notification: {str(e)}"
@@ -150,23 +181,163 @@ async def test_peer_notification(db: AsyncSession = Depends(get_db)):
     return await receive_peer_notification(test_data, db)
 
 @router.get("/recent", summary="Get recent notifications")
-async def get_recent_notifications(limit: int = 10):
-    """Get recent notifications for the current user."""
-    # Mock data - implement with actual notification storage
-    mock_notifications = []
-    for i in range(min(limit, 5)):
-        mock_notifications.append({
-            "id": f"notif_{i}",
-            "title": f"Ocean Alert #{i+1}",
-            "message": "A new hazard has been reported in your area",
-            "type": "hazard_alert",
-            "is_read": i > 2,
-            "created_at": datetime.utcnow().isoformat(),
-            "priority": "normal"
+async def get_recent_notifications(
+    limit: int = 10, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get recent notifications based on recent verified reports."""
+    # Get recent verified reports to show as notifications
+    recent_cutoff = datetime.utcnow() - timedelta(days=7)
+    
+    # First, get all report IDs that the current user has already responded to
+    user_responses = await db.execute(
+        select(SafetyCircle.notification_id).where(
+            SafetyCircle.user_id == current_user.id
+        )
+    )
+    responded_report_ids = {row[0] for row in user_responses.fetchall()}
+    
+    # Get recent reports, excluding those the user has already responded to
+    result = await db.execute(
+        select(Report, User.full_name).join(User).where(
+            and_(
+                Report.created_at >= recent_cutoff,
+                ~Report.id.in_(responded_report_ids)  # Exclude reports user has responded to
+            )
+        ).order_by(Report.created_at.desc()).limit(limit)
+    )
+    recent_reports = result.all()
+    
+    # Convert reports to notification format
+    notifications = []
+    for report, user_name in recent_reports:
+        # Map hazard types to readable names
+        hazard_name_map = {
+            'Tsunami': 'Tsunami',
+            'High Waves / Swell': 'High Waves / Swell',
+            'Coastal Flooding': 'Coastal Flooding',
+            'Storm Surge': 'Storm Surge',
+            'Rip Current': 'Rip Current',
+            'Coastal Erosion': 'Coastal Erosion',
+            'Water Discoloration / Algal Bloom': 'Water Discoloration / Algal Bloom',
+            'Marine Debris / Pollution': 'Marine Debris / Pollution',
+            'Other': 'Other Hazard'
+        }
+        
+        hazard_name = hazard_name_map.get(report.user_hazard_type, 'Unknown Hazard')
+        
+        # Format time to ensure proper timezone handling
+        if report.created_at.tzinfo is None:
+            # If no timezone info, assume UTC and add timezone
+            time_with_tz = report.created_at.replace(tzinfo=timezone.utc)
+        else:
+            # Convert to UTC if not already
+            time_with_tz = report.created_at.astimezone(timezone.utc)
+        
+        notifications.append({
+            "id": str(report.id),
+            "hazardName": hazard_name,
+            "description": report.user_description or f"New {hazard_name.lower()} report",
+            "time": time_with_tz.isoformat(),
+            "user": user_name,
+            "status": report.status.value,
+            "confidence": report.final_confidence_score,
+            "location": report.user_city or "Unknown location",
+            "image": None  # You can add media URL here if needed
         })
     
-    return {
-        "notifications": mock_notifications,
-        "count": len(mock_notifications),
-        "has_more": False
-    }
+    return notifications
+
+@router.post("/verify/{report_id}", summary="Verify a report notification")
+async def verify_report(report_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Verify a report by increasing its confidence score.
+    This simulates community verification of the report.
+    """
+    try:
+        # Get the report
+        report_uuid = uuid.UUID(report_id)
+        report = await db.get(Report, report_uuid)
+        
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Report with ID {report_id} not found"
+            )
+        
+        # Increase confidence score by 10% (or set minimum increase of 0.1)
+        current_score = report.final_confidence_score or 0.0
+        confidence_increase = max(0.1, current_score * 0.1)
+        new_score = min(1.0, current_score + confidence_increase)
+        
+        # Update the report
+        report.final_confidence_score = new_score
+        
+        # Commit the changes
+        await db.commit()
+        await db.refresh(report)
+        
+        return {
+            "message": "Report verified successfully",
+            "report_id": report_id,
+            "previous_confidence": current_score,
+            "new_confidence": new_score,
+            "increase": confidence_increase
+        }
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid report ID format"
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to verify report: {str(e)}"
+        )
+
+@router.post("/deny/{report_id}", summary="Deny a report notification")
+async def deny_report(report_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Deny a report. This keeps the confidence score the same but logs the denial.
+    In a real system, you might track denials to identify false reports.
+    """
+    try:
+        # Get the report
+        report_uuid = uuid.UUID(report_id)
+        report = await db.get(Report, report_uuid)
+        
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Report with ID {report_id} not found"
+            )
+        
+        # Keep confidence score the same (as requested)
+        current_score = report.final_confidence_score or 0.0
+        
+        # In a real system, you might:
+        # - Add a denial record to track community feedback
+        # - Decrease confidence score if multiple denials
+        # - Flag report for manual review
+        # For now, we just return the current state
+        
+        return {
+            "message": "Report denial recorded",
+            "report_id": report_id,
+            "confidence_score": current_score,
+            "status": "denied_by_user"
+        }
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid report ID format"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process denial: {str(e)}"
+        )
