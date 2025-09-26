@@ -24,34 +24,46 @@ async def create_all_tables():
 
 
 async def run_migrations():
-    """Run database migrations to add new fields."""
-    migration_file = Path(__file__).parent / "migrations" / "add_user_profile_fields.sql"
-    
-    if not migration_file.exists():
-        print(f"❌ Migration file not found: {migration_file}")
-        return False
-        
-    with open(migration_file, 'r') as f:
-        migration_sql = f.read()
-    
-    # Split the SQL into individual statements
-    # Remove comments and empty lines, then split by semicolon
-    statements = []
-    for line in migration_sql.split('\n'):
-        line = line.strip()
-        if line and not line.startswith('--'):
-            statements.append(line)
-    
-    # Join lines and split by semicolon to get individual commands
-    full_sql = ' '.join(statements)
-    individual_statements = [stmt.strip() for stmt in full_sql.split(';') if stmt.strip()]
+    """Run database migrations to add new fields and update roles."""
+    migrations_dir = Path(__file__).parent / "migrations"
+    migration_files = [
+        "add_user_profile_fields.sql",
+        "update_user_roles.sql"
+    ]
     
     async with engine.begin() as conn:
         print("🔄 Running migrations...")
-        for i, statement in enumerate(individual_statements, 1):
-            print(f"   Executing statement {i}/{len(individual_statements)}")
-            await conn.execute(text(statement))
-        print("✅ Migrations completed successfully!")
+        
+        for migration_file in migration_files:
+            file_path = migrations_dir / migration_file
+            
+            if not file_path.exists():
+                print(f"⚠️  Migration file not found: {file_path}")
+                continue
+                
+            print(f"   📄 Processing {migration_file}...")
+            
+            with open(file_path, 'r') as f:
+                migration_sql = f.read()
+            
+            # Split the SQL into individual statements
+            # Remove comments and empty lines, then split by semicolon
+            statements = []
+            for line in migration_sql.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('--'):
+                    statements.append(line)
+            
+            # Join lines and split by semicolon to get individual commands
+            full_sql = ' '.join(statements)
+            individual_statements = [stmt.strip() for stmt in full_sql.split(';') if stmt.strip()]
+            
+            for i, statement in enumerate(individual_statements, 1):
+                if statement.strip():
+                    print(f"      Executing statement {i}/{len(individual_statements)}")
+                    await conn.execute(text(statement))
+        
+        print("✅ All migrations completed successfully!")
         return True
 
 async def main():

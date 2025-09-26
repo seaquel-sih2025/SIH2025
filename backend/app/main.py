@@ -42,3 +42,27 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.get("/", tags=["Root"])
 def read_root():
     return {"status": "active", "message": "Welcome to the Pravaah API!"}
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Health check endpoint to verify API and database connectivity"""
+    try:
+        from app.db.session import engine
+        from sqlalchemy import text
+        # Test database connection
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "api": "running",
+            "message": "All systems operational"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy", 
+            "database": "disconnected",
+            "api": "running",
+            "error": str(e)
+        }

@@ -1,12 +1,14 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, User, Bell, Settings, Languages } from 'lucide-react';
+import { Home, FileText, Users, User, Bell, Settings, Languages, Shield, BarChart3 } from 'lucide-react';
+import { getUserRole, getDashboardRoute } from '../../utils/auth';
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-
+  
   const isLoggedIn = Boolean(localStorage.getItem('authToken'));
+  const userRole = getUserRole();
 
   const handleSignOut = () => {
     localStorage.removeItem('authToken');
@@ -15,7 +17,38 @@ const Navbar = () => {
     navigate('/auth', { replace: true });
   };
 
-  const navItems = [
+  // Role-based navigation items
+  const getRoleBasedNavItems = () => {
+    const dashboardRoute = getDashboardRoute();
+    const dashboardLabel = userRole === 'authority' ? 'Authority' : 
+                          userRole === 'analyst' ? 'Analytics' : 'Dashboard';
+    const dashboardIcon = userRole === 'authority' ? Shield : 
+                         userRole === 'analyst' ? BarChart3 : Home;
+
+    // Authority users only see their dashboard
+    if (userRole === 'authority') {
+      return [
+        { path: dashboardRoute, label: dashboardLabel, icon: dashboardIcon }
+      ];
+    }
+
+    // Analyst users only see their dashboard  
+    if (userRole === 'analyst') {
+      return [
+        { path: dashboardRoute, label: dashboardLabel, icon: dashboardIcon }
+      ];
+    }
+
+    // Citizens see all navigation options
+    return [
+      { path: dashboardRoute, label: dashboardLabel, icon: dashboardIcon },
+      { path: '/report', label: 'Report', icon: FileText },
+      { path: '/community', label: 'Community', icon: Users },
+      { path: '/profile', label: 'Profile', icon: User },
+    ];
+  };
+
+  const navItems = isLoggedIn ? getRoleBasedNavItems() : [
     { path: '/', label: 'Home', icon: Home },
     { path: '/report', label: 'Report', icon: FileText },
     { path: '/community', label: 'Community', icon: Users },

@@ -4,7 +4,7 @@ import api from '../utils/api';
 const mapUserTypeToRole = (userType) => {
   const mapping = {
     citizen: 'citizen',
-    authority: 'official',
+    authority: 'authority',
     analyst: 'analyst',
   };
   return mapping[userType] || 'citizen';

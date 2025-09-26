@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { User, Shield, BarChart3, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { User, Shield, BarChart3, Eye, EyeOff, Mail, Lock, Wifi } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import pravaahLogo from '../../assets/pravaah-logo.svg';
 import { login, register } from '../../services/authService';
+import ConnectionTest from '../../components/shared/ConnectionTest';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ const Auth = () => {
   });
   const [validationErrors, setValidationErrors] = useState({});
   const [loginError, setLoginError] = useState('');
+  const [registrationError, setRegistrationError] = useState('');
+  const [showConnectionTest, setShowConnectionTest] = useState(false);
 
   // If already logged in, redirect to home
   useEffect(() => {
@@ -63,7 +66,9 @@ const Auth = () => {
         setLoginError('Incorrect email or password');
       }
     } catch (err) {
-      if (err?.response?.status === 401) {
+      if (err?.userMessage) {
+        setLoginError(err.userMessage);
+      } else if (err?.response?.status === 401) {
         setLoginError('Incorrect email or password');
       } else {
         setLoginError(err?.response?.data?.detail || 'Login failed');
@@ -95,6 +100,8 @@ const Auth = () => {
     }
 
     setValidationErrors({});
+    setRegistrationError('');
+    
     try {
       await register({
         email: formData.email,
@@ -112,7 +119,29 @@ const Auth = () => {
         navigate('/auth');
       }
     } catch (err) {
-      alert(err?.response?.data?.detail || err?.message || 'Registration failed');
+      console.error('Registration error:', err);
+      let errorMessage = 'Registration failed';
+      
+      // Use improved error message from API interceptor
+      if (err?.userMessage) {
+        errorMessage = err.userMessage;
+        // Show connection test for network errors
+        if (err.userMessage.includes('connect to server') || err.userMessage.includes('Connection refused')) {
+          setShowConnectionTest(true);
+        }
+      } else if (err?.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          errorMessage = err.response.data.detail;
+        } else if (Array.isArray(err.response.data.detail)) {
+          errorMessage = err.response.data.detail.map(e => e.msg || e.message || e).join(', ');
+        } else {
+          errorMessage = 'Registration failed - please check your information';
+        }
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      setRegistrationError(errorMessage);
     }
   };
 
@@ -298,6 +327,22 @@ const Auth = () => {
             {/* Sign Up Form */}
             {activeTab === 'signup' && (
               <form onSubmit={handleSignUp} className="space-y-5">
+                {registrationError && (
+                  <div className="text-red-600 text-sm font-medium text-center bg-red-50 p-3 rounded-lg border border-red-200">
+                    <div className="flex items-center justify-center space-x-2">
+                      <span>{registrationError}</span>
+                      {registrationError.includes('connect') && (
+                        <button
+                          onClick={() => setShowConnectionTest(true)}
+                          className="ml-2 text-blue-600 hover:text-blue-800 underline flex items-center"
+                        >
+                          <Wifi className="w-4 h-4 mr-1" />
+                          Test Connection
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
                     I am a:
@@ -441,6 +486,11 @@ const Auth = () => {
           </div>
         </div>
       </div>
+      
+      {/* Connection Test Modal */}
+      {showConnectionTest && (
+        <ConnectionTest onClose={() => setShowConnectionTest(false)} />
+      )}
     </div>
   );
 };

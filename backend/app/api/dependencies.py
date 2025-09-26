@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 import uuid
 
 from app.db.session import get_db
-from app.db.models import User
+from app.db.models import User, UserRole
 from app.core.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -36,3 +36,48 @@ async def get_current_user(
         raise credentials_exception
         
     return user
+
+
+# Role-based dependency utilities
+async def get_current_citizen(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role != UserRole.citizen:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Citizen role required."
+        )
+    return current_user
+
+
+async def get_current_authority(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role != UserRole.authority:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Authority role required."
+        )
+    return current_user
+
+
+async def get_current_analyst(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role != UserRole.analyst:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Analyst role required."
+        )
+    return current_user
+
+
+async def get_current_authority_or_analyst(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role not in [UserRole.authority, UserRole.analyst]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Authority or Analyst role required."
+        )
+    return current_user

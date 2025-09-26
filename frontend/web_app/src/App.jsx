@@ -6,6 +6,11 @@ import Report from './pages/Report';
 import Community from './pages/Community';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import CitizenDashboard from './components/citizen/CitizenDashboard';
+import AuthorityDashboard from './components/authority/AuthorityDashboard';
+import AnalystDashboard from './components/analyst/AnalystDashboard';
+import RoleBasedRoute from './components/shared/RoleBasedRoute';
+import { getUserRole, getDashboardRoute, isTokenExpired } from './utils/auth';
 import './App.css';
 
 function App() {
@@ -13,13 +18,25 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    setIsLoggedIn(Boolean(localStorage.getItem('authToken')));
+    const token = localStorage.getItem('authToken');
+    const isValidToken = token && !isTokenExpired();
+    setIsLoggedIn(isValidToken);
+    
+    // Clear invalid token
+    if (token && !isValidToken) {
+      localStorage.removeItem('authToken');
+    }
+    
     setAuthChecked(true);
+    
     const onStorage = (e) => {
       if (e.key === 'authToken') {
-        setIsLoggedIn(Boolean(e.newValue));
+        const newToken = e.newValue;
+        const isValid = newToken && !isTokenExpired();
+        setIsLoggedIn(isValid);
       }
     };
+    
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
@@ -30,11 +47,87 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={isLoggedIn ? <Home /> : <Navigate to="/auth" replace />} />
-          <Route path="report" element={<Report />} />
-          <Route path="community" element={<Community />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="auth" element={isLoggedIn ? <Navigate to="/" replace /> : <Auth />} />
+          {/* Redirect root to appropriate dashboard based on role */}
+          <Route 
+            index 
+            element={
+              isLoggedIn ? 
+                <Navigate to={getDashboardRoute()} replace /> : 
+                <Navigate to="/auth" replace />
+            } 
+          />
+          
+          {/* Role-based dashboards */}
+          <Route 
+            path="dashboard/citizen" 
+            element={
+              <RoleBasedRoute allowedRoles={['citizen']}>
+                <CitizenDashboard />
+              </RoleBasedRoute>
+            } 
+          />
+          <Route 
+            path="dashboard/authority" 
+            element={
+              <RoleBasedRoute allowedRoles={['authority']}>
+                <AuthorityDashboard />
+              </RoleBasedRoute>
+            } 
+          />
+          <Route 
+            path="dashboard/analyst" 
+            element={
+              <RoleBasedRoute allowedRoles={['analyst']}>
+                <AnalystDashboard />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          {/* Legacy home route - redirect to appropriate dashboard */}
+          <Route 
+            path="home" 
+            element={
+              isLoggedIn ? 
+                <Navigate to={getDashboardRoute()} replace /> : 
+                <Navigate to="/auth" replace />
+            } 
+          />
+          
+          {/* Citizen-only routes */}
+          <Route 
+            path="report" 
+            element={
+              <RoleBasedRoute allowedRoles={['citizen']}>
+                <Report />
+              </RoleBasedRoute>
+            } 
+          />
+          <Route 
+            path="community" 
+            element={
+              <RoleBasedRoute allowedRoles={['citizen']}>
+                <Community />
+              </RoleBasedRoute>
+            } 
+          />
+          <Route 
+            path="profile" 
+            element={
+              <RoleBasedRoute allowedRoles={['citizen']}>
+                <Profile />
+              </RoleBasedRoute>
+            } 
+          />
+          
+          {/* Auth route */}
+          <Route 
+            path="auth" 
+            element={
+              isLoggedIn ? 
+                <Navigate to={getDashboardRoute()} replace /> : 
+                <Auth />
+            } 
+          />
         </Route>
       </Routes>
     </Router>
