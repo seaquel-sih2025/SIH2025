@@ -79,30 +79,22 @@ class PeerNotificationResponse(BaseModel):
     recipient_details: List[Dict[str, Any]]
 
 
-# Add to backend/app/models/pydantic_models.py
+# Safety Circle models for community notifications
 
-class SafetyStatusUpdate(BaseModel):
-    report_id: UUID
+class SafetyCircleCreate(BaseModel):
+    notification_id: UUID
+    latitude: float
+    longitude: float
     is_safe: bool
-    latitude: float
-    longitude: float
-    message: str = None
+    color: str
 
-class SafetyZoneResponse(BaseModel):
-    zone_id: str
-    zone_type: str  # "safe" or "danger"
+class SafetyCircleResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    notification_id: UUID
     latitude: float
     longitude: float
-    user_count: int
+    is_safe: bool
+    color: str
     created_at: datetime
-    
-class MapZone(BaseModel):
-    id: str
-    type: str  # "safe", "danger", "hazard"
-    latitude: float
-    longitude: float
-    radius: float
-    color: str  # hex color for map display
-    opacity: float
-    created_at: datetime
-    report_id: UUID = None
+    expires_at: datetime
