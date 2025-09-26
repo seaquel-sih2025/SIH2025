@@ -121,10 +121,81 @@ const ReportForm = () => {
     };
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission
-    console.log('Submitting report:', formData);
+    
+    try {
+      // Get user's current location
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+      
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      
+      // Create FormData for multipart request
+      const submitData = new FormData();
+      submitData.append('user_hazard_type', formData.activityType);
+      submitData.append('user_description', formData.description);
+      
+      // Add photos
+      formData.photos.forEach((photo, index) => {
+        submitData.append('media_files', photo);
+      });
+      
+      // Add videos
+      formData.videos.forEach((video, index) => {
+        submitData.append('media_files', video);
+      });
+      
+      // Add voice report if exists
+      if (formData.voiceReport) {
+        submitData.append('media_files', formData.voiceReport);
+      }
+      
+      // Get auth token from localStorage or cookies
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      const response = await fetch('/api/reports/submit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'latitude': latitude.toString(),
+          'longitude': longitude.toString()
+        },
+        body: submitData
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        if (result.is_offline) {
+          alert('Report saved offline. Will sync when connection is restored.');
+        } else {
+          alert('Report submitted successfully!');
+        }
+        
+        // Reset form
+        setFormData({
+          activityType: '',
+          description: '',
+          photos: [],
+          videos: [],
+          voiceReport: null
+        });
+      } else {
+        throw new Error(result.detail || 'Failed to submit report');
+      }
+      
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        alert('Unable to connect to the server. Please check your internet connection.');
+      } else {
+        alert(`Error submitting report: ${error.message}`);
+      }
+    }
   };
 
   const handleSaveDraft = () => {

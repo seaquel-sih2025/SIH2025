@@ -4,6 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from app.api.api import api_router
 from app.core.config import settings
 from app.services.rabbitmq_service import rabbitmq_service
+from app.services.connectivity_service import connectivity_service
+from app.services.sync_service import sync_service
+from app.db.sqlite_setup import init_sqlite_db
 import os
 
 app = FastAPI(
@@ -22,12 +25,31 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    # Initialize SQLite database for offline sync
+    await init_sqlite_db()
+    
+    # Connect to RabbitMQ
     await rabbitmq_service.connect()
+    
+    # Start connectivity monitoring
+    await connectivity_service.start_monitoring()
+    
+    # Start sync service
+    await sync_service.start_sync_service()
+    
+    print("Successfully connected to RabbitMQ.")
     print("Pravaah API startup complete.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    # Stop sync services
+    await sync_service.stop_sync_service()
+    await connectivity_service.stop_monitoring()
+    
+    # Close RabbitMQ connection
     await rabbitmq_service.close()
+    
+    print("RabbitMQ connection closed.")
     print("Pravaah API shutdown complete.")
 
 app.include_router(api_router, prefix="/api")
