@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, FileText, Users, User, Bell, Settings, Languages, AlertTriangle, Clock, Check, X } from 'lucide-react';
 import notificationService from '../../services/notificationService';
+import SafetyStatusModal from '../SafetyStatusModal';
 
 const Navbar = () => {
   const location = useLocation();
@@ -11,6 +12,8 @@ const Navbar = () => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const notificationRef = useRef(null);
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
+  const [selectedNotificationForSafety, setSelectedNotificationForSafety] = useState(null);
 
   const isLoggedIn = Boolean(localStorage.getItem('authToken'));
 
@@ -103,30 +106,39 @@ const Navbar = () => {
     }
   };
 
-  // Handle notification actions
   const handleVerify = async (notificationId) => {
-    try {
-      console.log('Verifying notification:', notificationId);
-      const response = await notificationService.verifyReport(notificationId);
-      console.log('Verify response:', response);
-      
-      // Update the notification list after successful verification
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, confidence: response.new_confidence }
-            : notification
-        )
-      );
-      
-      // Optionally show a success message
-      // You could add a toast notification here
-      
-    } catch (error) {
-      console.error('Error verifying notification:', error);
-      // Optionally show an error message
+  try {
+    console.log('Verifying notification:', notificationId);
+    const response = await notificationService.verifyReport(notificationId);
+    console.log('Verify response:', response);
+    
+    // Update the notification list after successful verification
+    setNotifications(prevNotifications => 
+      prevNotifications.map(notification => 
+        notification.id === notificationId 
+          ? { ...notification, confidence: response.new_confidence }
+          : notification
+      )
+    );
+    
+    // Show safety status modal after verification
+    const notification = notifications.find(n => n.id === notificationId);
+    if (notification) {
+      setSelectedNotificationForSafety(notification);
+      setShowSafetyModal(true);
     }
-  };
+    
+  } catch (error) {
+    console.error('Error verifying notification:', error);
+  }
+};
+
+const handleSafetyStatusUpdate = (result) => {
+  console.log('Safety status updated:', result);
+  // Optionally update map or show confirmation
+  // You could dispatch an event to update the map component
+  window.dispatchEvent(new CustomEvent('safetyZoneCreated', { detail: result }));
+};
 
   const handleDeny = async (notificationId) => {
     try {
@@ -363,6 +375,15 @@ const Navbar = () => {
           </div>
         </div>
       </div>
+      <SafetyStatusModal
+  isOpen={showSafetyModal}
+  onClose={() => {
+    setShowSafetyModal(false);
+    setSelectedNotificationForSafety(null);
+  }}
+  notification={selectedNotificationForSafety}
+  onStatusUpdate={handleSafetyStatusUpdate}
+/>
     </nav>
   );
 };

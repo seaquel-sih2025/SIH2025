@@ -71,6 +71,11 @@ class User(Base):
     role = Column(ENUM(UserRole, name="user_role"), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True) 
+    location_updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    reputation_score = Column(Integer, default=100, nullable=False)
+    is_verified = Column(Boolean, default=False, nullable=False)
 
     reports = relationship("Report", back_populates="user")
 
@@ -92,6 +97,8 @@ class Report(Base):
     user = relationship("User", back_populates="reports")
     media_files = relationship("Media", back_populates="report", cascade="all, delete-orphan")
     verifications = relationship("Verification", back_populates="report", cascade="all, delete-orphan")
+    peer_verifications = relationship("PeerVerification", back_populates="report", cascade="all, delete-orphan")
+    safety_zones = relationship("SafetyZone", back_populates="report", cascade="all, delete-orphan")
 
 class Media(Base):
     __tablename__ = "media"
@@ -121,3 +128,64 @@ class Verification(Base):
     
     report = relationship("Report", back_populates="verifications")
 
+
+# Add these new model classes at the bottom of the file
+
+class SafetyStatus(Base):
+    __tablename__ = "safety_status"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=False)
+    is_safe = Column(Boolean, nullable=False)
+    user_location = Column(Geography(geometry_type='POINT', srid=4326), nullable=False)
+    message = Column(String)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    
+    user = relationship("User")
+    report = relationship("Report")
+
+class MapZone(Base):
+    __tablename__ = "map_zones"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    zone_type = Column(String(20), nullable=False)
+    center_location = Column(Geography(geometry_type='POINT', srid=4326), nullable=False)
+    radius_meters = Column(Integer, nullable=False, default=1000)
+    color = Column(String(7), nullable=False)
+    opacity = Column(Float, nullable=False, default=0.3)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    expires_at = Column(TIMESTAMP(timezone=True))
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    
+    creator = relationship("User")
+    report = relationship("Report")
+
+class PeerVerification(Base):
+    __tablename__ = "peer_verifications"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=False)
+    verifier_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    verification_type = Column(String(20), nullable=False)  # 'verify', 'reject', 'safe', 'not_safe'
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    
+    # Relationships
+    report = relationship("Report", back_populates="peer_verifications")
+    verifier = relationship("User", foreign_keys=[verifier_user_id])
+
+class SafetyZone(Base):
+    __tablename__ = "safety_zones"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=False)
+    zone_type = Column(String(20), nullable=False)  # 'safe_green', 'unsafe_purple'
+    location = Column(Geography(geometry_type='POINT', srid=4326), nullable=False)
+    radius_meters = Column(Integer, default=1000, nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    
+    # Relationships
+    user = relationship("User")
+    report = relationship("Report", back_populates="safety_zones")

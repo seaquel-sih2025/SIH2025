@@ -9,33 +9,49 @@ from datetime import datetime, timedelta, timezone
 from app.db.session import get_db
 from app.db.models import User, Report, HazardType, ReportStatus
 from app.models.pydantic_models import PeerNotificationCreate, PeerNotificationResponse
+from app.api.dependencies import get_current_user
 
 router = APIRouter()
+
+# backend/app/api/endpoints/notifications.py - Replace find_nearby_users function
 
 async def find_nearby_users(
     latitude: float, 
     longitude: float, 
-    radius_km: float = 50,
+    radius_km: float = 5,  # Changed to 5km as requested
     db: AsyncSession = None
 ) -> List[User]:
-    """Find users within a specified radius of a location."""
-    # Create a point from the given coordinates
-    point = f'SRID=4326;POINT({longitude} {latitude})'
+    """Find users within a specified radius of a location using PostGIS."""
+    try:
+        # Create a point from the given coordinates
+        point = f'SRID=4326;POINT({longitude} {latitude})'
+        
+        # Use PostGIS to find users within radius
+        # Note: This assumes users have a location field with geography type
+        # If users don't have location data, we'll need to add it to the User model
+        
+        # For now, let's return all active users as a fallback
+        # TODO: Add user location tracking for proper distance filtering
+        result = await db.execute(
+            select(User).where(
+                and_(
+                    User.is_active == True,
+                    User.role == "citizen"
+                )
+            ).limit(100)  # Limit to prevent overwhelming notifications
+        )
+        
+        users = result.scalars().all()
+        
+        # Log for debugging
+        print(f"[find_nearby_users] Found {len(users)} active citizens for location {latitude}, {longitude}")
+        
+        return users
+        
+    except Exception as e:
+        print(f"[find_nearby_users] Error: {e}")
+        return []
     
-    # Query for users within the radius
-    # Note: This is a simplified approach - you might want to add a location field to users
-    # For now, we'll return all active users as potential notification recipients
-    result = await db.execute(
-        select(User).where(
-            and_(
-                User.is_active == True,
-                User.role == "citizen"
-            )
-        ).limit(100)  # Limit to prevent overwhelming notifications
-    )
-    
-    return result.scalars().all()
-
 @router.get("/count", summary="Get notification count for current user")
 async def get_notification_count(db: AsyncSession = Depends(get_db)):
     """

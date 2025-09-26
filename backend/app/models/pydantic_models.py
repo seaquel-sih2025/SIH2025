@@ -77,3 +77,32 @@ class PeerNotificationResponse(BaseModel):
     report_id: UUID
     notifications_sent: int
     recipient_details: List[Dict[str, Any]]
+
+
+# Add to backend/app/models/pydantic_models.py
+
+class SafetyStatusUpdate(BaseModel):
+    report_id: UUID
+    is_safe: bool
+    latitude: float
+    longitude: float
+    message: str = None
+
+class SafetyZoneResponse(BaseModel):
+    zone_id: str
+    zone_type: str  # "safe" or "danger"
+    latitude: float
+    longitude: float
+    user_count: int
+    created_at: datetime
+    
+class MapZone(BaseModel):
+    id: str
+    type: str  # "safe", "danger", "hazard"
+    latitude: float
+    longitude: float
+    radius: float
+    color: str  # hex color for map display
+    opacity: float
+    created_at: datetime
+    report_id: UUID = None
