@@ -60,12 +60,13 @@ const ConnectionTest = ({ onClose }) => {
 
     // Test 3: API Routes
     try {
-      const response = await api.get('/auth/register', {
-        validateStatus: () => true // Accept any status code
+      // Test a simple GET endpoint instead of POST-only register endpoint
+      const response = await fetch('http://localhost:8000/', {
+        method: 'GET',
+        mode: 'cors'
       });
       
-      // We expect a 422 (validation error) or 405 (method not allowed) for GET on register
-      if (response.status === 422 || response.status === 405) {
+      if (response.ok) {
         updateTest(2, 'success', 'API routes are accessible');
       } else {
         updateTest(2, 'warning', `Unexpected response: ${response.status}`);

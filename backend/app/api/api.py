@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import reports, auth, verifications, feed, users, notifications, safety_circles, sync, authority, analyst
+from app.api.endpoints import reports, auth, verifications, feed, users, notifications, safety_circles, sync, authority, analyst, official
 
 api_router = APIRouter()
 
@@ -12,5 +12,8 @@ api_router.include_router(feed.router, prefix="/feed", tags=["Feed"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 api_router.include_router(safety_circles.router, prefix="/safety-circles", tags=["Safety Circles"])
 api_router.include_router(sync.router, prefix="/sync", tags=["Offline Sync"])
+# New official endpoints
+api_router.include_router(official.router, prefix="/official", tags=["Official"])
+# Keep authority endpoints for backward compatibility during migration
 api_router.include_router(authority.router, prefix="/authority", tags=["Authority"])
 api_router.include_router(analyst.router, prefix="/analyst", tags=["Analyst"])

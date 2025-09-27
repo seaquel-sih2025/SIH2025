@@ -50,13 +50,25 @@ async def get_current_citizen(
     return current_user
 
 
+async def get_current_official(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role != UserRole.official:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Official role required."
+        )
+    return current_user
+
+
+# Keep authority function for backward compatibility during migration
 async def get_current_authority(
     current_user: User = Depends(get_current_user)
 ) -> User:
-    if current_user.role != UserRole.authority:
+    if current_user.role not in [UserRole.authority, UserRole.official]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Authority role required."
+            detail="Access denied. Authority/Official role required."
         )
     return current_user
 
@@ -72,12 +84,24 @@ async def get_current_analyst(
     return current_user
 
 
+async def get_current_official_or_analyst(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if current_user.role not in [UserRole.official, UserRole.analyst]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Official or Analyst role required."
+        )
+    return current_user
+
+
+# Keep authority_or_analyst function for backward compatibility during migration
 async def get_current_authority_or_analyst(
     current_user: User = Depends(get_current_user)
 ) -> User:
-    if current_user.role not in [UserRole.authority, UserRole.analyst]:
+    if current_user.role not in [UserRole.authority, UserRole.official, UserRole.analyst]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Authority or Analyst role required."
+            detail="Access denied. Authority/Official or Analyst role required."
         )
     return current_user

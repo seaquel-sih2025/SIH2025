@@ -56,11 +56,21 @@ const Auth = () => {
     setValidationErrors({});
     setLoginError('');
     try {
+      console.log('🔐 Auth: Attempting login...');
       const res = await login({ email: formData.email, password: formData.password });
+      console.log('🔐 Auth: Login response =', res);
+      
       if (res?.access_token) {
+        console.log('🔐 Auth: Storing token and dispatching events');
         localStorage.setItem('authToken', res.access_token);
-        // also broadcast change for other tabs
+        
+        // Dispatch custom event for same-tab communication
+        window.dispatchEvent(new CustomEvent('authTokenChanged'));
+        
+        // Also broadcast storage event for other tabs
         window.dispatchEvent(new StorageEvent('storage', { key: 'authToken', newValue: res.access_token }));
+        
+        console.log('🔐 Auth: Navigating to home...');
         navigate('/', { replace: true });
       } else {
         setLoginError('Incorrect email or password');
@@ -103,6 +113,13 @@ const Auth = () => {
     setRegistrationError('');
     
     try {
+      console.log('🔐 Auth: Attempting registration with data:', {
+        email: formData.email,
+        full_name: formData.username,
+        phone: formData.phone,
+        userType: selectedUserType,
+      });
+      
       await register({
         email: formData.email,
         full_name: formData.username,
@@ -112,8 +129,15 @@ const Auth = () => {
       });
       const res = await login({ email: formData.email, password: formData.password });
       if (res?.access_token) {
+        console.log('🔐 Auth: Registration login successful, storing token');
         localStorage.setItem('authToken', res.access_token);
+        
+        // Dispatch custom event for same-tab communication
+        window.dispatchEvent(new CustomEvent('authTokenChanged'));
+        
+        // Also broadcast storage event for other tabs
         window.dispatchEvent(new StorageEvent('storage', { key: 'authToken', newValue: res.access_token }));
+        
         navigate('/', { replace: true });
       } else {
         navigate('/auth');
@@ -125,10 +149,6 @@ const Auth = () => {
       // Use improved error message from API interceptor
       if (err?.userMessage) {
         errorMessage = err.userMessage;
-        // Show connection test for network errors
-        if (err.userMessage.includes('connect to server') || err.userMessage.includes('Connection refused')) {
-          setShowConnectionTest(true);
-        }
       } else if (err?.response?.data?.detail) {
         if (typeof err.response.data.detail === 'string') {
           errorMessage = err.response.data.detail;
@@ -147,7 +167,7 @@ const Auth = () => {
 
   const userTypes = [
     { id: 'citizen', name: 'Citizen', icon: User, description: 'Report hazards and stay informed', color: 'blue' },
-    { id: 'authority', name: 'Authority', icon: Shield, description: 'Manage safety reports and alerts', color: 'red' },
+    { id: 'official', name: 'Official', icon: Shield, description: 'Manage safety reports and alerts', color: 'red' },
     { id: 'analyst', name: 'Analyst', icon: BarChart3, description: 'Analyze data and trends', color: 'purple' }
   ];
 

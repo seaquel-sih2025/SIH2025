@@ -82,8 +82,8 @@ class UserModel {
   // Check if user is citizen
   bool get isCitizen => hasRole('citizen');
 
-  // Check if user is authority
-  bool get isAuthority => hasRole('authority');
+  // Check if user is official
+  bool get isOfficial => hasRole('official');
 
   // Check if user is analyst
   bool get isAnalyst => hasRole('analyst');

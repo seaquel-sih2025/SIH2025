@@ -14,7 +14,7 @@ const RoleBasedRoute = ({ children, allowedRoles, fallbackRoute = '/auth' }) => 
   if (allowedRoles && !hasAnyRole(allowedRoles)) {
     const dashboardRoutes = {
       citizen: '/dashboard/citizen',
-      authority: '/dashboard/authority',
+      official: '/dashboard/official',
       analyst: '/dashboard/analyst'
     };
     

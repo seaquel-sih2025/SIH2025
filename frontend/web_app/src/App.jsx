@@ -7,7 +7,7 @@ import Community from './pages/Community';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
 import CitizenDashboard from './components/citizen/CitizenDashboard';
-import AuthorityDashboard from './components/authority/AuthorityDashboard';
+import OfficialDashboard from './components/official/OfficialDashboard';
 import AnalystDashboard from './components/analyst/AnalystDashboard';
 import RoleBasedRoute from './components/shared/RoleBasedRoute';
 import { getUserRole, getDashboardRoute, isTokenExpired } from './utils/auth';
@@ -18,29 +18,51 @@ function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  useEffect(() => {
+  const checkAuthState = () => {
+    console.log('🔐 App: Checking auth state...');
     const token = localStorage.getItem('authToken');
     const isValidToken = token && !isTokenExpired();
+    console.log('🔐 App: Token exists =', !!token, 'Token valid =', isValidToken);
+    
     setIsLoggedIn(isValidToken);
     
     // Clear invalid token
     if (token && !isValidToken) {
+      console.log('🔐 App: Removing invalid token');
       localStorage.removeItem('authToken');
     }
     
-    setAuthChecked(true);
+    if (!authChecked) {
+      setAuthChecked(true);
+    }
+  };
+
+  useEffect(() => {
+    console.log('🔐 App: Initial auth check');
+    checkAuthState();
     
+    // Listen for storage events from other tabs
     const onStorage = (e) => {
       if (e.key === 'authToken') {
-        const newToken = e.newValue;
-        const isValid = newToken && !isTokenExpired();
-        setIsLoggedIn(isValid);
+        console.log('🔐 App: Storage event detected');
+        checkAuthState();
       }
     };
     
+    // Listen for custom auth events from same tab
+    const onAuthTokenChanged = () => {
+      console.log('🔐 App: Custom authTokenChanged event received');
+      setTimeout(checkAuthState, 100); // Small delay to ensure token is stored
+    };
+    
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+    window.addEventListener('authTokenChanged', onAuthTokenChanged);
+    
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('authTokenChanged', onAuthTokenChanged);
+    };
+  }, [authChecked]);
 
   if (!authChecked) return null;
 
@@ -68,10 +90,10 @@ function App() {
             } 
           />
           <Route 
-            path="dashboard/authority" 
+            path="dashboard/official" 
             element={
-              <RoleBasedRoute allowedRoles={['authority']}>
-                <AuthorityDashboard />
+              <RoleBasedRoute allowedRoles={['official']}>
+                <OfficialDashboard />
               </RoleBasedRoute>
             } 
           />

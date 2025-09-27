@@ -26,9 +26,14 @@ export const decodeJWT = (token) => {
  */
 export const getUserRole = () => {
   const token = localStorage.getItem('authToken');
+  console.log('🔐 getUserRole: Token from localStorage =', token ? 'EXISTS' : 'NULL');
+  
   if (!token) return null;
   
   const payload = decodeJWT(token);
+  console.log('🔐 getUserRole: Decoded payload =', payload);
+  console.log('🔐 getUserRole: Role from payload =', payload?.role);
+  
   return payload?.role || null;
 };
 
@@ -64,16 +69,25 @@ export const hasAnyRole = (roles) => {
  */
 export const getDashboardRoute = () => {
   const role = getUserRole();
+  console.log('🔐 getDashboardRoute: User role =', role);
+  
+  let route;
   switch (role) {
     case 'citizen':
-      return '/dashboard/citizen';
-    case 'authority':
-      return '/dashboard/authority';
+      route = '/dashboard/citizen';
+      break;
+    case 'official':
+      route = '/dashboard/official';
+      break;
     case 'analyst':
-      return '/dashboard/analyst';
+      route = '/dashboard/analyst';
+      break;
     default:
-      return '/dashboard/citizen'; // Default fallback
+      route = '/dashboard/citizen'; // Default fallback
   }
+  
+  console.log('🔐 getDashboardRoute: Returning route =', route);
+  return route;
 };
 
 /**

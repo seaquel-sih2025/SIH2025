@@ -1,5 +1,11 @@
--- Quick fix for user_role enum issue
--- Run this SQL script to fix the "authority" role problem
+-- Quick fix f        WHERE enumlabel = 'official' 
+          AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'user_role')
+    THEN
+        ALTER TYPE user_role ADD VALUE 'official';
+        RAISE NOTICE 'Added official to user_role enum';
+    ELSE
+        RAISE NOTICE 'Official already exists in user_role enum';_role enum issue
+-- Run this SQL script to fix the "official" role problem
 
 -- Check current enum values
 SELECT enumlabel 
@@ -7,7 +13,7 @@ FROM pg_enum
 WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'user_role')
 ORDER BY enumlabel;
 
--- Add 'authority' to the enum if it doesn't exist
+-- Add 'official' to the enum if it doesn't exist
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -22,8 +28,8 @@ BEGIN
     END IF;
 END$$;
 
--- Migrate any existing 'official' users to 'authority'
-UPDATE users SET role = 'authority' WHERE role = 'official';
+-- Migrate any existing 'authority' users to 'official'
+UPDATE users SET role = 'official' WHERE role = 'authority';
 
 -- Verify the fix
 SELECT enumlabel 
@@ -31,8 +37,8 @@ FROM pg_enum
 WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'user_role')
 ORDER BY enumlabel;
 
--- Test that authority role works
-SELECT 'authority'::user_role as test_authority_role;
+-- Test that official role works
+SELECT 'official'::user_role as test_official_role;
 
 -- Show current user roles
 SELECT role, COUNT(*) as count 

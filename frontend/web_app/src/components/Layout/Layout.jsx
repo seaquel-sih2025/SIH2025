@@ -7,9 +7,9 @@ const Layout = () => {
   const location = useLocation();
   const userRole = getUserRole();
   
-  // Don't show navbar for authority dashboard (it has its own integrated navbar)
-  // Only hide navbar if we're specifically on the authority dashboard route
-  const hideNavbar = location.pathname === '/dashboard/authority';
+  // Don't show navbar for official dashboard (it has its own integrated navbar)
+  // Only hide navbar if we're specifically on the official dashboard route
+  const hideNavbar = location.pathname === '/dashboard/official';
   
   return (
     <div className="min-h-screen bg-sky-100">
