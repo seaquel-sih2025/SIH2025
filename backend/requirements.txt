@@ -46,6 +46,9 @@ GeoAlchemy2
 passlib[bcrypt]
 python-jose[cryptography]
 
+# Offline/SQLite Support
+aiosqlite
+sqlite-utils
 
 #s3
 boto3

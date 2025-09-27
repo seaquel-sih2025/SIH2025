@@ -14,6 +14,7 @@ const Home = () => {
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [recentReports, setRecentReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [safetyCircles, setSafetyCircles] = useState([]); // Array of safety status circles
   const watchIdRef = useRef(null);
 
   useEffect(() => {
@@ -45,6 +46,140 @@ const Home = () => {
       }
     })();
     return () => { mounted = false; };
+  }, []);
+
+  // Load existing safety circles from database
+  useEffect(() => {
+    const loadSafetyCircles = async () => {
+      try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+          console.log('No auth token found, skipping safety circles load');
+          return;
+        }
+
+        console.log('Loading safety circles from database...');
+        const response = await fetch('/api/safety-circles/active', {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        console.log('Safety circles response status:', response.status);
+        
+        if (response.ok) {
+          const circles = await response.json();
+          console.log('Raw safety circles from API:', circles);
+          
+          const mappedCircles = circles.map(circle => ({
+            id: `db-${circle.id}`,
+            lat: circle.latitude,
+            lng: circle.longitude,
+            isSafe: circle.is_safe,
+            color: circle.color,
+            timestamp: new Date(circle.created_at).getTime(),
+            reportId: circle.notification_id
+          }));
+          
+          setSafetyCircles(mappedCircles);
+          console.log('Loaded', mappedCircles.length, 'safety circles from database');
+        } else {
+          console.error('Failed to load safety circles:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+        }
+      } catch (error) {
+        console.error('Error loading safety circles:', error);
+      }
+    };
+
+    // Add a small delay to ensure auth token is available
+    const timeoutId = setTimeout(() => {
+      loadSafetyCircles();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Listen for auth changes and reload safety circles
+  useEffect(() => {
+    const loadSafetyCircles = async () => {
+      try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+          console.log('No auth token found, clearing safety circles');
+          setSafetyCircles([]);
+          return;
+        }
+
+        console.log('Auth changed, reloading safety circles...');
+        const response = await fetch('/api/safety-circles/active', {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const circles = await response.json();
+          const mappedCircles = circles.map(circle => ({
+            id: `db-${circle.id}`,
+            lat: circle.latitude,
+            lng: circle.longitude,
+            isSafe: circle.is_safe,
+            color: circle.color,
+            timestamp: new Date(circle.created_at).getTime(),
+            reportId: circle.notification_id
+          }));
+          
+          setSafetyCircles(mappedCircles);
+          console.log('Reloaded', mappedCircles.length, 'safety circles after auth change');
+        }
+      } catch (error) {
+        console.error('Error reloading safety circles after auth change:', error);
+      }
+    };
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'authToken') {
+        loadSafetyCircles();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Listen for safety circle events
+  useEffect(() => {
+    const handleSafetyCircle = (event) => {
+      const { latitude, longitude, isSafe, color, timestamp, reportId } = event.detail;
+      
+      const newCircle = {
+        id: `safety-${timestamp}-${reportId}`,
+        lat: latitude,
+        lng: longitude,
+        isSafe,
+        color,
+        timestamp,
+        reportId
+      };
+
+      setSafetyCircles(prev => [...prev, newCircle]);
+
+      // Remove the circle after 30 seconds (temporary display)
+      setTimeout(() => {
+        setSafetyCircles(prev => prev.filter(circle => circle.id !== newCircle.id));
+      }, 30000);
+    };
+
+    window.addEventListener('addSafetyCircle', handleSafetyCircle);
+    
+    return () => {
+      window.removeEventListener('addSafetyCircle', handleSafetyCircle);
+    };
   }, []);
 
   // Function to get current location
@@ -223,6 +358,66 @@ const Home = () => {
                   </>
                 )}
               </button>
+              <button
+                onClick={() => {
+                  const loadSafetyCircles = async () => {
+                    try {
+                      const authToken = localStorage.getItem('authToken');
+                      if (!authToken) {
+                        console.log('No auth token for manual refresh');
+                        alert('Please log in to load safety circles');
+                        return;
+                      }
+                      
+                      console.log('Manually refreshing safety circles...');
+                      console.log('Current circles before refresh:', safetyCircles.length);
+                      
+                      const response = await fetch('/api/safety-circles/active', {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                      });
+                      
+                      console.log('Manual refresh response status:', response.status);
+                      
+                      if (response.ok) {
+                        const circles = await response.json();
+                        console.log('Raw circles from API:', circles);
+                        
+                        const mappedCircles = circles.map(circle => ({
+                          id: `db-${circle.id}`,
+                          lat: circle.latitude,
+                          lng: circle.longitude,
+                          isSafe: circle.is_safe,
+                          color: circle.color,
+                          timestamp: new Date(circle.created_at).getTime(),
+                          reportId: circle.notification_id
+                        }));
+                        
+                        console.log('Mapped circles:', mappedCircles);
+                        
+                        // Force a fresh state update
+                        setSafetyCircles([]);
+                        setTimeout(() => {
+                          setSafetyCircles(mappedCircles);
+                          console.log('Manual refresh: State updated with', mappedCircles.length, 'safety circles');
+                        }, 50);
+                        
+                      } else {
+                        const errorText = await response.text();
+                        console.error('Manual refresh failed:', response.status, errorText);
+                        alert(`Failed to refresh: ${response.status} - ${errorText}`);
+                      }
+                    } catch (error) {
+                      console.error('Manual refresh error:', error);
+                      alert(`Error refreshing circles: ${error.message}`);
+                    }
+                  };
+                  loadSafetyCircles();
+                }}
+                className="ml-3 px-3 py-2 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors"
+                title="Click to manually refresh safety circles from database"
+              >
+                🔄 Refresh Circles ({safetyCircles.length})
+              </button>
             </div>
             
             {/* Map Container */}
@@ -237,6 +432,7 @@ const Home = () => {
                   zoom={myLocation ? 13 : 11}
                   markers={locationAllowed && myLocation ? [{ position: [myLocation.lat, myLocation.lng], popup: 'My Location' }] : []}
                   hotspots={hotspots}
+                  safetyCircles={safetyCircles}
                 />
                 {loadingHotspots ? (
                   <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-xs px-2 py-1 rounded">Loading hotspots…</div>

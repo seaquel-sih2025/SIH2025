@@ -172,3 +172,50 @@ async def get_user_rewards(
     """Get user's rewards (mock data for now)"""
     # TODO: Implement rewards system
     return []
+
+
+# Add location endpoints for users
+from datetime import datetime
+
+@router.put("/location", summary="Update user location")
+async def update_user_location(
+    location_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update the current user's location."""
+    latitude = location_data.get('latitude')
+    longitude = location_data.get('longitude')
+    accuracy = location_data.get('accuracy')
+    
+    if not latitude or not longitude:
+        raise HTTPException(
+            status_code=400,
+            detail="Latitude and longitude are required"
+        )
+    
+    # Update user location
+    current_user.latitude = latitude
+    current_user.longitude = longitude
+    current_user.location_updated_at = datetime.utcnow()
+    
+    await db.commit()
+    
+    return {
+        "message": "Location updated successfully",
+        "latitude": latitude,
+        "longitude": longitude,
+        "accuracy": accuracy,
+        "updated_at": current_user.location_updated_at.isoformat()
+    }
+
+@router.get("/location", summary="Get user location")
+async def get_user_location(
+    current_user: User = Depends(get_current_user)
+):
+    """Get the current user's stored location."""
+    return {
+        "latitude": current_user.latitude,
+        "longitude": current_user.longitude,
+        "location_updated_at": current_user.location_updated_at.isoformat() if current_user.location_updated_at else None
+    }

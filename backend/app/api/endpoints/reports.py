@@ -5,17 +5,23 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 from uuid import uuid4
 import uuid
+import tempfile
+import shutil
+from pathlib import Path
 
 from app.db.models import User, HazardType, Report, Media
 from app.db.session import get_db
 from app.models.pydantic_models import ReportSubmitResponse
+from app.models.offline_models import OfflineReportCreate
 from app.services.rabbitmq_service import rabbitmq_service
 from app.services.s3_service import s3_service
+from app.services.connectivity_service import connectivity_service
+from app.services.offline_storage_service import offline_storage_service
 from app.api.dependencies import get_current_user
 
 router = APIRouter()
 
-@router.post("/submit", response_model=ReportSubmitResponse, status_code=202, summary="Submit a new Hazard Report")
+@router.post("/submit", response_model=ReportSubmitResponse, status_code=202, summary="Submit a new Hazard Report (with offline support)")
 async def submit_hazard_report(
     latitude: float = Header(..., description="Auto-detected latitude from device GPS"),
     longitude: float = Header(..., description="Auto-detected longitude from device GPS"),
@@ -25,43 +31,122 @@ async def submit_hazard_report(
     current_user: User = Depends(get_current_user)
 ):
     report_id = uuid4()
-
-    media_payloads = []
-    for file in media_files:
-        content_type = file.content_type
-        if content_type.startswith("image/"): media_type = "image"
-        elif content_type.startswith("video/"): media_type = "video"
-        elif content_type.startswith("audio/"): media_type = "audio"
-        else: continue
-            
-        # Call the S3 service to upload the file and get a REAL URL
-        real_file_url = s3_service.upload_file(file, media_type, report_id)
-        
-        # We only add the file to the message if the upload was successful
-        if real_file_url:
-            media_payloads.append({
-                "file_url": real_file_url,
-                "media_type": media_type
-            })
     
-    message_body = {
-        "report_id": str(report_id),
-        "user_id": str(current_user.id),
-        "report_data": {
-            "user_hazard_type": user_hazard_type.value,
-            "user_description": user_description,
-            "latitude": latitude,
-            "longitude": longitude
-        },
-        "media_files": media_payloads # This now contains REAL S3 URLs
-    }
-
+    # Check connectivity status
+    connectivity_status = await connectivity_service.update_connectivity_status()
+    
+    if not connectivity_status.is_online:
+        # Handle offline submission
+        return await _submit_report_offline(
+            report_id, latitude, longitude, user_hazard_type, 
+            user_description, media_files, current_user
+        )
+    
+    # Handle online submission (existing logic)
     try:
-        await rabbitmq_service.publish_message("report_processing_queue", message_body)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Could not queue report for processing.")
+        media_payloads = []
+        for file in media_files:
+            content_type = file.content_type
+            if content_type.startswith("image/"): media_type = "image"
+            elif content_type.startswith("video/"): media_type = "video"
+            elif content_type.startswith("audio/"): media_type = "audio"
+            else: continue
+                
+            # Call the S3 service to upload the file and get a REAL URL
+            real_file_url = s3_service.upload_file(file, media_type, report_id)
+            
+            # We only add the file to the message if the upload was successful
+            if real_file_url:
+                media_payloads.append({
+                    "file_url": real_file_url,
+                    "media_type": media_type
+                })
+        
+        message_body = {
+            "report_id": str(report_id),
+            "user_id": str(current_user.id),
+            "report_data": {
+                "user_hazard_type": user_hazard_type.value,
+                "user_description": user_description,
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "media_files": media_payloads # This now contains REAL S3 URLs
+        }
 
-    return {"message": "Hazard report has been accepted for processing.", "report_id": report_id}
+        await rabbitmq_service.publish_message("report_processing_queue", message_body)
+        return {"message": "Hazard report has been accepted for processing.", "report_id": report_id}
+        
+    except Exception as e:
+        # If online submission fails, try offline fallback
+        return await _submit_report_offline(
+            report_id, latitude, longitude, user_hazard_type, 
+            user_description, media_files, current_user
+        )
+
+
+async def _submit_report_offline(
+    report_id: uuid.UUID,
+    latitude: float,
+    longitude: float,
+    user_hazard_type: HazardType,
+    user_description: Optional[str],
+    media_files: List[UploadFile],
+    current_user: User
+) -> dict:
+    """Handle offline report submission"""
+    try:
+        # Create offline report data
+        offline_report_data = OfflineReportCreate(
+            user_id=str(current_user.id),
+            hazard_type=user_hazard_type.value,
+            latitude=latitude,
+            longitude=longitude,
+            description=user_description,
+            city=None  # Could be determined from coordinates later
+        )
+        
+        # Save media files temporarily
+        temp_media_files = []
+        for file in media_files:
+            content_type = file.content_type
+            if content_type.startswith("image/"): media_type = "image"
+            elif content_type.startswith("video/"): media_type = "video" 
+            elif content_type.startswith("audio/"): media_type = "audio"
+            else: continue
+            
+            # Save file to temporary location
+            temp_dir = Path(tempfile.gettempdir()) / "offline_reports"
+            temp_dir.mkdir(exist_ok=True)
+            
+            temp_file_path = temp_dir / f"{report_id}_{file.filename}"
+            
+            with open(temp_file_path, "wb") as temp_file:
+                shutil.copyfileobj(file.file, temp_file)
+            
+            temp_media_files.append((
+                str(temp_file_path),
+                media_type,
+                {"original_filename": file.filename, "content_type": content_type}
+            ))
+        
+        # Store report offline
+        offline_report = await offline_storage_service.store_report_offline(
+            offline_report_data, temp_media_files
+        )
+        
+        return {
+            "message": "Report saved offline. Will sync when connection is restored.",
+            "report_id": str(report_id),
+            "offline_id": offline_report.id,
+            "is_offline": True
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to save report offline: {str(e)}"
+        )
 
 
 @router.get("/hotspots", summary="List report hotspots with coordinates and confidence")

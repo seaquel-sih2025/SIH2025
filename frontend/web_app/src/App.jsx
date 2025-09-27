@@ -11,6 +11,7 @@ import AuthorityDashboard from './components/authority/AuthorityDashboard';
 import AnalystDashboard from './components/analyst/AnalystDashboard';
 import RoleBasedRoute from './components/shared/RoleBasedRoute';
 import { getUserRole, getDashboardRoute, isTokenExpired } from './utils/auth';
+import OfflineSync from './components/OfflineSync';
 import './App.css';
 
 function App() {
@@ -130,6 +131,8 @@ function App() {
           />
         </Route>
       </Routes>
+      {/* Show offline sync status for logged-in users */}
+      {isLoggedIn && <OfflineSync />}
     </Router>
   );
 }

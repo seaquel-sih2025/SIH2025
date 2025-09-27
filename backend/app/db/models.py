@@ -71,8 +71,14 @@ class User(Base):
     role = Column(ENUM(UserRole, name="user_role"), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True) 
+    location_updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    reputation_score = Column(Integer, default=100, nullable=False)
+    is_verified = Column(Boolean, default=False, nullable=False)
 
     reports = relationship("Report", back_populates="user")
+    safety_circles = relationship("SafetyCircle", back_populates="user")
 
 class Report(Base):
     __tablename__ = "reports"
@@ -120,4 +126,22 @@ class Verification(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
     
     report = relationship("Report", back_populates="verifications")
+
+
+# Safety circles for community notifications and map display
+
+class SafetyCircle(Base):
+    __tablename__ = "safety_circles"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    notification_id = Column(UUID(as_uuid=True), nullable=False)  # Reference to the notification
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    is_safe = Column(Boolean, nullable=False)  # True for green (safe), False for purple (not safe)
+    color = Column(String(7), nullable=False)  # Hex color code
+    created_at = Column(TIMESTAMP(timezone=True), server_default=text("TIMEZONE('utc', now())"), nullable=False)
+    expires_at = Column(TIMESTAMP(timezone=True), nullable=False)  # 48 hours from creation
+    
+    user = relationship("User", back_populates="safety_circles")
 

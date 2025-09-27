@@ -52,6 +52,12 @@ const mapActivityToHazardType = (activityType) => {
  */
 export const submitReport = async (reportData) => {
   try {
+    // Check if we're truly offline (browser offline mode)
+    if (!navigator.onLine) {
+      console.log('Browser is offline, saving report locally...');
+      return await saveReportOffline(reportData);
+    }
+
     // Create FormData for multipart/form-data request
     const formData = new FormData();
     
@@ -87,15 +93,94 @@ export const submitReport = async (reportData) => {
   } catch (error) {
     console.error('Error submitting report:', error);
     
-    // Normalize axios/network errors
+    // If network error, try to save offline
+    if (error.code === 'NETWORK_ERROR' || 
+        error.code === 'ERR_NETWORK' ||
+        error.message?.includes('Network Error') || 
+        error.message?.includes('Failed to fetch') ||
+        error.message?.includes('ERR_NETWORK') ||
+        !navigator.onLine) {
+      console.log('Network error detected, saving report offline...', error.message);
+      return await saveReportOffline(reportData);
+    }
+    
+    // Normalize other errors
     if (error.response?.data?.detail) {
       throw new Error(error.response.data.detail);
     }
-    if (error.message?.includes('Network Error')) {
-      throw new Error('Unable to connect to the server. Please check your internet connection.');
-    }
     throw error;
   }
+};
+
+// Helper function to save report offline
+const saveReportOffline = async (reportData) => {
+  try {
+    // Generate a unique offline ID
+    const offlineId = `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Collect all media files
+    const allMediaFiles = [
+      ...(reportData.photos || []),
+      ...(reportData.videos || []),
+      ...(reportData.voiceReport ? [reportData.voiceReport] : [])
+    ];
+
+    // Convert files to base64 for storage
+    const mediaData = await Promise.all(
+      allMediaFiles.map(async (file) => {
+        const base64 = await fileToBase64(file);
+        return {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data: base64
+        };
+      })
+    );
+
+    const offlineReport = {
+      id: offlineId,
+      activityType: reportData.activityType,
+      description: reportData.description,
+      latitude: reportData.latitude,
+      longitude: reportData.longitude,
+      mediaFiles: mediaData,
+      timestamp: new Date().toISOString(),
+      synced: false
+    };
+
+    // Get existing offline reports
+    const existingReports = JSON.parse(localStorage.getItem('offline_reports') || '[]');
+    
+    // Add new report
+    existingReports.push(offlineReport);
+    
+    // Save back to localStorage
+    localStorage.setItem('offline_reports', JSON.stringify(existingReports));
+
+    console.log(`Report saved offline with ID: ${offlineId}`);
+    
+    return {
+      message: "Report saved offline. Will sync when connection is restored.",
+      report_id: offlineId,
+      offline_id: offlineId,
+      is_offline: true
+    };
+    
+  } catch (error) {
+    console.error('Failed to save report offline:', error);
+    throw new Error('Failed to save report offline. Please try again.');
+  }
+};
+
+// Helper function to convert file to base64
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
 };
 
 /**
