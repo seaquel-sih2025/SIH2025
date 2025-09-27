@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, User, Bell, Settings, Languages, Shield, BarChart3 } from 'lucide-react';
+import { Home, FileText, Users, User, Bell, Settings, Languages, Shield, BarChart3, AlertTriangle, Clock, Check, X } from 'lucide-react';
 import { getUserRole, getDashboardRoute } from '../../utils/auth';
+import notificationService from '../../services/notificationService';
 
 const Navbar = () => {
   const location = useLocation();
@@ -9,6 +10,16 @@ const Navbar = () => {
   
   const isLoggedIn = Boolean(localStorage.getItem('authToken'));
   const userRole = getUserRole();
+
+  // State for notifications
+  const [notifications, setNotifications] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [verifiedNotifications, setVerifiedNotifications] = useState(new Set());
+  
+  // Ref for notification dropdown
+  const notificationRef = useRef(null);
 
   // Load initial notifications and start real-time updates
   useEffect(() => {
