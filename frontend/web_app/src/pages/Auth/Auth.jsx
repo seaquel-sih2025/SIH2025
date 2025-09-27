@@ -228,10 +228,10 @@ const Auth = () => {
 
       {/* Right Side - Auth Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-4 max-h-[85vh]">
             {/* Welcome Header */}
-            <div className="text-center mb-6">
+            <div className="text-center mb-4">
               {activeTab === 'signin' ? (
                 <>
                   <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome Back</h2>
@@ -246,7 +246,7 @@ const Auth = () => {
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+            <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
               <button
                 onClick={() => setActiveTab('signin')}
                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
@@ -270,24 +270,24 @@ const Auth = () => {
             </div>
             {/* Sign In Form */}
             {activeTab === 'signin' && (
-              <form onSubmit={handleSignIn} className="space-y-6">
+              <form onSubmit={handleSignIn} className="space-y-4">
                 {loginError && (
                   <div className="text-red-600 text-sm font-medium text-center">{loginError}</div>
                 )}
                 {/* Email Field */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="your@email.com"
-                      className={`w-full pl-12 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
                         validationErrors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -300,18 +300,18 @@ const Auth = () => {
                 </div>
                 {/* Password Field */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
                       placeholder="••••••••"
-                      className={`w-full pl-12 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                      className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
                         validationErrors.password ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -320,7 +320,7 @@ const Auth = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     {validationErrors.password && (
                       <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -333,7 +333,7 @@ const Auth = () => {
                 {/* Sign In Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 px-4 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full py-2 px-4 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Sign In to Pravaah
                 </button>
@@ -346,7 +346,7 @@ const Auth = () => {
 
             {/* Sign Up Form */}
             {activeTab === 'signup' && (
-              <form onSubmit={handleSignUp} className="space-y-5">
+              <form onSubmit={handleSignUp} className="space-y-3">
                 {registrationError && (
                   <div className="text-red-600 text-sm font-medium text-center bg-red-50 p-3 rounded-lg border border-red-200">
                     <div className="flex items-center justify-center space-x-2">
@@ -364,7 +364,7 @@ const Auth = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     I am a:
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -376,12 +376,12 @@ const Auth = () => {
                           key={type.id}
                           type="button"
                           onClick={() => setSelectedUserType(type.id)}
-                          className={`p-3 border-2 rounded-lg transition-all hover:shadow-md ${colors.bg}`}
+                          className={`p-2 border-2 rounded-lg transition-all hover:shadow-md ${colors.bg}`}
                         >
-                          <div className={`w-7 h-7 ${colors.icon} rounded-lg flex items-center justify-center mx-auto mb-2`}>
-                            <Icon className="w-4 h-4 text-white" />
+                          <div className={`w-6 h-6 ${colors.icon} rounded-lg flex items-center justify-center mx-auto mb-1`}>
+                            <Icon className="w-3 h-3 text-white" />
                           </div>
-                          <p className="text-sm font-medium text-gray-900">{type.name}</p>
+                          <p className="text-xs font-medium text-gray-900">{type.name}</p>
                         </button>
                       );
                     })}
@@ -389,18 +389,18 @@ const Auth = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="your@email.com"
-                      className={`w-full pl-12 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
                         validationErrors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -413,18 +413,18 @@ const Auth = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     Username
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
                       name="username"
                       value={formData.username}
                       onChange={handleInputChange}
                       placeholder="oceankeeper123"
-                      className={`w-full pl-12 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
                         validationErrors.username ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -437,18 +437,18 @@ const Auth = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     Phone Number
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="+91 98765 43210"
-                      className={`w-full pl-12 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
                         validationErrors.phone ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -461,18 +461,18 @@ const Auth = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
                       placeholder="••••••••"
-                      className={`w-full pl-12 pr-12 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                      className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
                         validationErrors.password ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -481,7 +481,7 @@ const Auth = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     {validationErrors.password && (
                       <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
@@ -493,7 +493,7 @@ const Auth = () => {
 
                 <button
                   type="submit"
-                  className="w-full py-3 px-4 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full py-2 px-4 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Create Pravaah Account
                 </button>

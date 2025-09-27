@@ -228,3 +228,5 @@ backend/instance/
 MEDIA_FIXES.md
 PROFILE_SETUP.md
 WORKFLOW.md
+frontend/web-app/.env
+*.env*
