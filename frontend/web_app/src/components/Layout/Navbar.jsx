@@ -323,11 +323,9 @@ const Navbar = () => {
       ];
     }
 
-    // Analyst users only see their dashboard  
+    // Analyst users see no navigation items (only Pravaah logo and sign out)
     if (userRole === 'analyst') {
-      return [
-        { path: dashboardRoute, label: dashboardLabel, icon: dashboardIcon }
-      ];
+      return [];
     }
 
     // Citizens see all navigation options
