@@ -4,7 +4,7 @@ import api from '../utils/api';
 const mapUserTypeToRole = (userType) => {
   const mapping = {
     citizen: 'citizen',
-    authority: 'official',
+    official: 'official',
     analyst: 'analyst',
   };
   return mapping[userType] || 'citizen';
@@ -18,7 +18,10 @@ export const register = async ({ email, full_name, phone, password, userType }) 
     password,
     role: mapUserTypeToRole(userType),
   };
+  console.log('🔐 AuthService: Registering user with payload:', payload);
+  console.log('🔐 AuthService: Making POST request to /auth/register');
   const { data } = await api.post('/auth/register', payload);
+  console.log('🔐 AuthService: Registration successful:', data);
   return data;
 };
 

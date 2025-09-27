@@ -27,12 +27,12 @@ class RoleSelector extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: _RoleCard(
-            title: 'Authority',
+            title: 'Official',
             icon: Icons.security,
             color: const Color(0xFFEF4444),
             gradientColors: const [Color(0xFFF87171), Color(0xFFDC2626)],
-            isSelected: selectedRole == 'Authority',
-            onTap: () => onRoleChanged('Authority'),
+            isSelected: selectedRole == 'Official',
+            onTap: () => onRoleChanged('Official'),
           ),
         ),
         const SizedBox(width: 12),

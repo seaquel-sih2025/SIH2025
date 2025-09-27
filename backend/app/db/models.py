@@ -26,6 +26,7 @@ class HazardType(str, enum.Enum):
 class UserRole(str, enum.Enum):
     citizen = "citizen"
     official = "official"
+    authority = "authority"
     analyst = "analyst"
 
 class ReportStatus(str, enum.Enum):

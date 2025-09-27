@@ -27,6 +27,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log detailed error information for debugging
+    console.error('API Error:', {
+      message: error.message,
+      code: error.code,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+      method: error.config?.method
+    });
+
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('authToken');
@@ -34,6 +44,16 @@ api.interceptors.response.use(
         window.location.replace('/auth');
       }
     }
+    
+    // Add network error handling
+    if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
+      error.userMessage = 'Unable to connect to server. Please check if the backend is running.';
+    } else if (error.code === 'ECONNREFUSED') {
+      error.userMessage = 'Connection refused. Please ensure the backend server is running on the correct port.';
+    } else if (error.response?.status >= 500) {
+      error.userMessage = 'Server error. Please try again later.';
+    }
+    
     return Promise.reject(error);
   }
 );

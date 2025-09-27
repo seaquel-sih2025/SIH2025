@@ -32,10 +32,6 @@ async def register_user(
         **user_data,
         hashed_password=hashed_password
     )
-
-    if new_user.role == "citizen":
-        new_user.reputation_score = 100
-        new_user.is_verified = True
     
     db.add(new_user)
     await db.commit()
@@ -63,6 +59,6 @@ async def login_for_access_token(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
 
-    access_token = create_access_token(data={"sub": str(user.id)})
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
     
     return {"access_token": access_token, "token_type": "bearer"}
