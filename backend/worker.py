@@ -1,11 +1,47 @@
 import asyncio
 import json
 import uuid
+import os
+import sys
 from aio_pika.abc import AbstractIncomingMessage
 
 from app.db.session import get_db
 from app.db.models import Report, Media, HazardType, MediaType, User
 from app.services.rabbitmq_service import rabbitmq_service
+
+# AI Extension configuration
+AI_EXTENSION_ENABLED = os.getenv("AI_EXTENSION_ENABLED", "true").lower() == "true"
+
+# Add AI extension path to sys.path for direct imports
+AI_EXTENSION_PATH = os.path.join(os.path.dirname(__file__), "..", "ai-extention")
+if AI_EXTENSION_PATH not in sys.path:
+    sys.path.append(AI_EXTENSION_PATH)
+
+def call_ai_extension(report_id: uuid.UUID):
+    """
+    Call AI extension functions directly for additional processing.
+    AI extension will read from reports table and store in scraped_data table.
+    """
+    if not AI_EXTENSION_ENABLED:
+        print(f"  - AI Extension disabled, skipping for report {report_id}")
+        return
+    
+    try:
+        # Import AI extension functions
+        from main import run_pipeline_with_params
+        
+        print(f"  - Triggering AI Extension for report {report_id}")
+        
+        # Call the AI extension pipeline directly
+        # AI extension will read from reports table and process them
+        result = run_pipeline_with_params(limit=20)
+        
+        print(f"  - AI Extension processed {result} tweets from reports table")
+        
+    except ImportError as e:
+        print(f"  - Failed to import AI Extension modules: {e}")
+    except Exception as e:
+        print(f"  - Error calling AI Extension for report {report_id}: {e}")
 
 async def process_report_message(message: AbstractIncomingMessage):
     """
@@ -70,6 +106,10 @@ async def process_report_message(message: AbstractIncomingMessage):
             }
             await rabbitmq_service.publish_message("peer_notification_queue", peer_message)
             print(f"  - Dispatched task to peer_notification_queue for report {report_id}")
+
+            # Call AI Extension for additional processing
+            # AI extension will read from reports table and store in scraped_data table
+            call_ai_extension(report_id=report_id)
 
             print(f"[✔] Finished processing and dispatching for report {report_id}.")
 

@@ -47,17 +47,19 @@ def get_conn():
 
 
 def init_db():
+    # Create the scraped_data table for AI extension output
     create_sql = """
-    CREATE TABLE IF NOT EXISTS hazardous_tweets (
+    CREATE TABLE IF NOT EXISTS scraped_data (
         id SERIAL PRIMARY KEY,
-        tweet_url TEXT UNIQUE,
-        hazard_type TEXT,
+        event_type TEXT,
         location TEXT,
-        sentiment_label TEXT,
-        sentiment_score DOUBLE PRECISION,
-        tweet_date DATE,
-        tweet_time TIME,
-        inserted_at TIMESTAMPTZ
+        urgency TEXT,
+        sentiment TEXT,
+        source_url TEXT,
+        source_created_at TIMESTAMPTZ,
+        source_date DATE,
+        source_time TIME,
+        created_at TIMESTAMPTZ DEFAULT NOW()
     );
     """
     with get_conn() as conn:
@@ -65,43 +67,73 @@ def init_db():
             cur.execute(create_sql)
 
 
-def upsert_hazardous_tweet(
+def store_scraped_data(
     *,
-    tweet_url: str,
-    hazard_type: str,
+    event_type: str,
     location: str,
-    sentiment_label: str,
-    sentiment_score: float,
-    tweet_date: str,
-    tweet_time: str,
+    urgency: str,
+    sentiment: str,
+    source_url: str,
+    source_created_at: str = None,
+    source_date: str = None,
+    source_time: str = None,
 ):
     """
-    Insert if new; ignore duplicates based on tweet_url.
+    Store AI-generated scraped data in scraped_data table.
     """
     insert_sql = """
-    INSERT INTO hazardous_tweets (
-        tweet_url, hazard_type, location, sentiment_label, sentiment_score,
-        tweet_date, tweet_time, inserted_at
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    ON CONFLICT (tweet_url) DO NOTHING;
+    INSERT INTO scraped_data (
+        event_type, location, urgency, sentiment, source_url,
+        source_created_at, source_date, source_time
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
     """
+    
     # Convert date/time strings to PostgreSQL-friendly formats
-    date_val = tweet_date if tweet_date else None
-    time_val = tweet_time if tweet_time else None
+    created_at_val = source_created_at if source_created_at else None
+    date_val = source_date if source_date else None
+    time_val = source_time if source_time else None
+    
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 insert_sql,
                 (
-                    tweet_url,
-                    hazard_type,
+                    event_type,
                     location,
-                    sentiment_label,
-                    float(sentiment_score),
+                    urgency,
+                    sentiment,
+                    source_url,
+                    created_at_val,
                     date_val,
                     time_val,
-                    datetime.utcnow().isoformat(timespec="seconds") + "Z",
                 ),
             )
+
+def get_recent_reports(limit: int = 10):
+    """
+    Get recent reports from the reports table for AI processing.
+    """
+    query = """
+    SELECT id, user_hazard_type, user_city, user_description, 
+           latitude, longitude, created_at
+    FROM reports 
+    WHERE status = 'under_verification' 
+    ORDER BY created_at DESC 
+    LIMIT %s
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (limit,))
+            rows = cur.fetchall()
+            cols = [
+                "id",
+                "user_hazard_type", 
+                "user_city",
+                "user_description",
+                "latitude",
+                "longitude",
+                "created_at"
+            ]
+            return [dict(zip(cols, row)) for row in rows]
 
 

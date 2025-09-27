@@ -1,4 +1,4 @@
-# Hazardous Tweet Pipeline
+ript# Hazardous Tweet Pipeline
 
 Scrape tweets about ocean-related hazards, classify them, translate to English, analyze sentiment, extract hazard/location, and store hazardous items in PostgreSQL.
 
