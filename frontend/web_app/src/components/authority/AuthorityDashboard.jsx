@@ -37,46 +37,77 @@ const AuthorityDashboard = () => {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // Mock data for development
+  // Mock data for development - Ocean Hazards
   const mockReports = [
     {
       id: 1,
-      title: 'Severe Illegal Dumping and Road Contamination',
-      description: 'Large amounts of waste dumped on coastal road causing environmental hazard',
-      category: 'Sanitation',
-      priority: 'Low',
-      status: 'pending',
-      location: 'Sarjapur, Iyya Nagar, Bengaluru South City Corporation',
-      reportedBy: 'Citizen Reporter',
+      title: 'High Waves and Coastal Flooding Alert',
+      description: 'Dangerous wave conditions reported near Marina Beach with potential flooding risk to coastal areas',
+      category: 'Ocean Safety',
+      priority: 'High',
+      status: 'under_verification',
+      location: 'Marina Beach, Chennai Coastal Area',
+      reportedBy: 'Coastal Patrol Officer',
       reportedAt: '2025-09-25T14:13:46Z',
       image: '/api/placeholder/300/200',
-      department: 'Sanitation'
+      department: 'Marine Safety',
+      hazardType: 'High Waves / Swell'
     },
     {
       id: 2,
-      title: 'Illegal Dumping and Collapsed Infrastructure',
-      description: 'Waste accumulation near residential area with damaged infrastructure',
-      category: 'Health & Safety',
+      title: 'Tsunami Warning - Immediate Evacuation Required',
+      description: 'Seismic activity detected in Indian Ocean, potential tsunami threat to eastern coastline',
+      category: 'Emergency Alert',
       priority: 'Critical',
-      status: 'in_progress',
-      location: 'Sandeep Vihar AWHO Apartments, Uttarahalli',
-      reportedBy: 'Community Member',
+      status: 'under_verification',
+      location: 'Visakhapatnam Coastal District',
+      reportedBy: 'Seismic Monitoring Station',
       reportedAt: '2025-09-24T10:30:00Z',
       image: '/api/placeholder/300/200',
-      department: 'Public Works'
+      department: 'Disaster Management',
+      hazardType: 'Tsunami'
     },
     {
       id: 3,
-      title: 'Severe Illegal Dumping and Infrastructure Damage',
-      description: 'Critical waste management issue affecting local infrastructure',
-      category: 'Sanitation',
+      title: 'Marine Pollution and Oil Spill Detected',
+      description: 'Large oil spill reported 15 nautical miles off Mumbai coast, affecting marine ecosystem',
+      category: 'Environmental Hazard',
       priority: 'High',
-      status: 'resolved',
-      location: 'Sandeep Vihar AWHO Apartments, Uttarahalli',
-      reportedBy: 'Local Authority',
+      status: 'verified',
+      location: 'Mumbai Offshore Waters',
+      reportedBy: 'Coast Guard Patrol',
       reportedAt: '2025-09-23T16:45:00Z',
       image: '/api/placeholder/300/200',
-      department: 'Environment'
+      department: 'Environmental Protection',
+      hazardType: 'Marine Debris / Pollution'
+    },
+    {
+      id: 4,
+      title: 'Dangerous Rip Current Activity',
+      description: 'Strong rip currents observed at popular swimming areas, multiple rescue operations conducted',
+      category: 'Water Safety',
+      priority: 'Medium',
+      status: 'rejected',
+      location: 'Goa Beaches - Calangute and Baga',
+      reportedBy: 'Lifeguard Team',
+      reportedAt: '2025-09-22T09:15:00Z',
+      image: '/api/placeholder/300/200',
+      department: 'Beach Safety',
+      hazardType: 'Rip Current'
+    },
+    {
+      id: 5,
+      title: 'Coastal Erosion Threatening Infrastructure',
+      description: 'Severe coastal erosion observed near residential areas, immediate assessment required',
+      category: 'Coastal Management',
+      priority: 'Medium',
+      status: 'under_verification',
+      location: 'Puducherry Coastal Highway',
+      reportedBy: 'Local Resident',
+      reportedAt: '2025-09-21T18:30:00Z',
+      image: '/api/placeholder/300/200',
+      department: 'Coastal Engineering',
+      hazardType: 'Coastal Erosion'
     }
   ];
 
@@ -117,18 +148,23 @@ const AuthorityDashboard = () => {
       
       // Calculate stats
       const totalIssues = allReports.length;
-      const resolved = allReports.filter(r => r.status === 'resolved').length;
-      const inProgress = allReports.filter(r => r.status === 'in_progress').length;
-      const pending = allReports.filter(r => r.status === 'pending').length;
+      const verified = allReports.filter(r => r.status === 'verified').length;
+      const underVerification = allReports.filter(r => r.status === 'under_verification').length;
+      const rejected = allReports.filter(r => r.status === 'rejected').length;
       
       setReports(allReports);
-      setStats({ totalIssues, resolved, inProgress, pending });
+      setStats({ totalIssues, verified, underVerification, rejected });
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       // Use mock data on error
       setReports(mockReports);
-      setStats({ totalIssues: 25, resolved: 4, inProgress: 6, pending: 3 });
+      setStats({ 
+        totalIssues: mockReports.length, 
+        verified: mockReports.filter(r => r.status === 'verified').length,
+        underVerification: mockReports.filter(r => r.status === 'under_verification').length,
+        rejected: mockReports.filter(r => r.status === 'rejected').length
+      });
       setUserInfo({
         name: 'Authority User',
         email: 'authority@pravaah.com',
@@ -151,9 +187,11 @@ const AuthorityDashboard = () => {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'resolved': return 'bg-green-100 text-green-800';
+      case 'verified': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'under_verification': return 'bg-yellow-100 text-yellow-800';
       case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'pending': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -162,7 +200,25 @@ const AuthorityDashboard = () => {
     try {
       console.log(`${action} report ${reportId}`);
       
-      if (action === 'delete') {
+      if (action === 'verify') {
+        // Update report status to verified
+        setReports(reports.map(r => 
+          r.id === reportId ? { ...r, status: 'verified' } : r
+        ));
+        
+        // TODO: Make API call to backend
+        // await api.post(`/reports/${reportId}/verify`);
+        
+      } else if (action === 'reject') {
+        // Update report status to rejected
+        setReports(reports.map(r => 
+          r.id === reportId ? { ...r, status: 'rejected' } : r
+        ));
+        
+        // TODO: Make API call to backend
+        // await api.post(`/reports/${reportId}/reject`);
+        
+      } else if (action === 'delete') {
         setReports(reports.filter(r => r.id !== reportId));
       }
     } catch (error) {
@@ -315,64 +371,64 @@ const AuthorityDashboard = () => {
           <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Issues</p>
+                <p className="text-sm font-medium text-gray-600">Total Ocean Reports</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.totalIssues}</p>
               </div>
               <div className="bg-blue-100 p-3 rounded-lg">
-                <FileText className="w-6 h-6 text-blue-600" />
+                <AlertTriangle className="w-6 h-6 text-blue-600" />
               </div>
             </div>
             <div className="mt-2">
               <TrendingUp className="w-4 h-4 text-green-500 inline mr-1" />
-              <span className="text-sm text-green-600">+12% from last month</span>
+              <span className="text-sm text-green-600">Ocean hazard monitoring</span>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Resolved</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.resolved}</p>
+                <p className="text-sm font-medium text-gray-600">Verified Reports</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.verified || 0}</p>
               </div>
               <div className="bg-green-100 p-3 rounded-lg">
                 <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
             <div className="mt-2">
-              <TrendingUp className="w-4 h-4 text-green-500 inline mr-1" />
-              <span className="text-sm text-green-600">+8% efficiency</span>
+              <CheckCircle className="w-4 h-4 text-green-500 inline mr-1" />
+              <span className="text-sm text-green-600">Confirmed hazards</span>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">In Progress</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.inProgress}</p>
+                <p className="text-sm font-medium text-gray-600">Under Review</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.underVerification || 0}</p>
               </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <Activity className="w-6 h-6 text-purple-600" />
+              <div className="bg-yellow-100 p-3 rounded-lg">
+                <Clock className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
             <div className="mt-2">
               <Clock className="w-4 h-4 text-yellow-500 inline mr-1" />
-              <span className="text-sm text-yellow-600">Avg 2.3 days</span>
+              <span className="text-sm text-yellow-600">Awaiting verification</span>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.pending}</p>
+                <p className="text-sm font-medium text-gray-600">Rejected Reports</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.rejected || 0}</p>
               </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Clock className="w-6 h-6 text-orange-600" />
+              <div className="bg-red-100 p-3 rounded-lg">
+                <X className="w-6 h-6 text-red-600" />
               </div>
             </div>
             <div className="mt-2">
-              <AlertTriangle className="w-4 h-4 text-orange-500 inline mr-1" />
-              <span className="text-sm text-orange-600">Needs attention</span>
+              <X className="w-4 h-4 text-red-500 inline mr-1" />
+              <span className="text-sm text-red-600">False alarms</span>
             </div>
           </div>
         </div>
@@ -402,9 +458,10 @@ const AuthorityDashboard = () => {
                   className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
+                  <option value="under_verification">Under Verification</option>
+                  <option value="verified">Verified</option>
+                  <option value="rejected">Rejected</option>
                   <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
                 </select>
               </div>
               
@@ -464,9 +521,14 @@ const AuthorityDashboard = () => {
                 <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{report.title}</h3>
                 
                 <div className="flex items-center text-sm text-gray-500 mb-3">
-                  <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs mr-3">
+                  <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs mr-2">
                     {report.category || report.department}
                   </div>
+                  {report.hazardType && (
+                    <div className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">
+                      {report.hazardType}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center text-sm text-gray-500 mb-4">
@@ -483,40 +545,74 @@ const AuthorityDashboard = () => {
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <div className="flex space-x-2">
+                <div className="pt-4 border-t space-y-3">
+                  {/* Primary Actions - Verify/Reject */}
+                  {report.status === 'under_verification' && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleReportAction(report.id, 'verify')}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Verify
+                      </button>
+                      <button
+                        onClick={() => handleReportAction(report.id, 'reject')}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Status Display for Verified/Rejected Reports */}
+                  {(report.status === 'verified' || report.status === 'rejected') && (
+                    <div className="text-center py-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        report.status === 'verified' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {report.status === 'verified' ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Verified Report
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4 mr-1" />
+                            Rejected Report
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Secondary Actions */}
+                  <div className="flex items-center justify-center space-x-4">
                     <button
                       onClick={() => setSelectedReport(report)}
-                      className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
                       title="View Details"
                     >
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-4 h-4 mr-1" />
+                      <span className="text-sm">View</span>
                     </button>
                     <button
                       onClick={() => openTimelineModal(report)}
-                      className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
                       title="Timeline"
                     >
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-4 h-4 mr-1" />
+                      <span className="text-sm">Timeline</span>
                     </button>
                     <button
-                      className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                      className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
                       title="Assign"
                     >
-                      <UserCheck className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
-                      title="Edit"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleReportAction(report.id, 'delete')}
-                      className="flex items-center text-red-600 hover:text-red-800 transition-colors"
-                      title="Remove"
-                    >
-                      <Trash2 className="w-4 h-4" />
+                      <UserCheck className="w-4 h-4 mr-1" />
+                      <span className="text-sm">Assign</span>
                     </button>
                   </div>
                 </div>
