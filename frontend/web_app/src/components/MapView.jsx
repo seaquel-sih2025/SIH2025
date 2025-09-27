@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -39,7 +39,8 @@ const MapView = ({
   height = '256px',
   className = '',
   markers = [], // [{ position: [lat, lng], popup: 'text' }]
-  hotspots = [] // [{ lat, lng, confidence(0..1) }]
+  hotspots = [], // [{ lat, lng, confidence(0..1) }]
+  safetyCircles = [] // [{ lat, lng, isSafe, color, timestamp }]
 }) => {
   const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -47,6 +48,8 @@ const MapView = ({
   const style = useMemo(() => ({ height, width: '100%' }), [height]);
 
   const visibleHotspots = (hotspots || []).filter((h) => (h.confidence ?? 0) >= 0.35);
+
+
 
   return (
     <div className={className} style={style}>
@@ -87,6 +90,38 @@ const MapView = ({
           <Marker key={idx} position={m.position}>
             {m.popup ? <Popup>{m.popup}</Popup> : null}
           </Marker>
+        ))}
+        
+        {/* Render safety circles (green for safe, purple for not safe) */}
+        {(safetyCircles || []).filter(circle => 
+          circle && 
+          typeof circle.lat === 'number' && 
+          typeof circle.lng === 'number' && 
+          circle.id && 
+          circle.color
+        ).map((circle) => (
+          <CircleMarker
+            key={circle.id}
+            center={[circle.lat, circle.lng]}
+            radius={25}
+            pathOptions={{ 
+              color: circle.color,
+              fillColor: circle.color,
+              fillOpacity: 0.4,
+              weight: 3
+            }}
+          >
+            <Popup>
+              <div style={{ minWidth: 140 }}>
+                <div><strong>Status:</strong> {circle.isSafe ? 'Safe Location' : 'Unsafe Location'}</div>
+                <div><strong>Reported:</strong> {new Date(circle.timestamp).toLocaleString()}</div>
+                <div><strong>Type:</strong> Safety Response</div>
+                <div style={{ fontSize: '11px', marginTop: '4px', color: '#666' }}>
+                  From database - expires in 48 hours
+                </div>
+              </div>
+            </Popup>
+          </CircleMarker>
         ))}
       </MapContainer>
     </div>

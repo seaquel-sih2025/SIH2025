@@ -77,3 +77,24 @@ class PeerNotificationResponse(BaseModel):
     report_id: UUID
     notifications_sent: int
     recipient_details: List[Dict[str, Any]]
+
+
+# Safety Circle models for community notifications
+
+class SafetyCircleCreate(BaseModel):
+    notification_id: UUID
+    latitude: float
+    longitude: float
+    is_safe: bool
+    color: str
+
+class SafetyCircleResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    notification_id: UUID
+    latitude: float
+    longitude: float
+    is_safe: bool
+    color: str
+    created_at: datetime
+    expires_at: datetime
