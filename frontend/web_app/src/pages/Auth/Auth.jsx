@@ -9,12 +9,15 @@ const Auth = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('signin');
   const [selectedUserType, setSelectedUserType] = useState('citizen');
+  const [selectedSignInUserType, setSelectedSignInUserType] = useState('citizen');
   const [showPassword, setShowPassword] = useState(false);
+  const [showAccessCode, setShowAccessCode] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     username: '',
     password: '',
-    phone: ''
+    phone: '',
+    accessCode: ''
   });
   const [validationErrors, setValidationErrors] = useState({});
   const [loginError, setLoginError] = useState('');
@@ -248,7 +251,13 @@ const Auth = () => {
             {/* Tab Navigation */}
             <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
               <button
-                onClick={() => setActiveTab('signin')}
+                onClick={() => {
+                  setActiveTab('signin');
+                  setFormData({ email: '', username: '', password: '', phone: '', accessCode: '' });
+                  setValidationErrors({});
+                  setLoginError('');
+                  setRegistrationError('');
+                }}
                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'signin'
                     ? 'bg-white text-gray-900 shadow-sm'
@@ -258,7 +267,13 @@ const Auth = () => {
                 Sign In
               </button>
               <button
-                onClick={() => setActiveTab('signup')}
+                onClick={() => {
+                  setActiveTab('signup');
+                  setFormData({ email: '', username: '', password: '', phone: '', accessCode: '' });
+                  setValidationErrors({});
+                  setLoginError('');
+                  setRegistrationError('');
+                }}
                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'signup'
                     ? 'bg-white text-gray-900 shadow-sm'
@@ -274,6 +289,33 @@ const Auth = () => {
                 {loginError && (
                   <div className="text-red-600 text-sm font-medium text-center">{loginError}</div>
                 )}
+                
+                {/* User Type Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                    I am a:
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {userTypes.map((type) => {
+                      const Icon = type.icon;
+                      const colors = getColorClasses(type.color, selectedSignInUserType === type.id);
+                      return (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => setSelectedSignInUserType(type.id)}
+                          className={`p-2 border-2 rounded-lg transition-all hover:shadow-md ${colors.bg}`}
+                        >
+                          <div className={`w-6 h-6 ${colors.icon} rounded-lg flex items-center justify-center mx-auto mb-1`}>
+                            <Icon className="w-3 h-3 text-white" />
+                          </div>
+                          <p className="text-xs font-medium text-gray-900">{type.name}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Email Field */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
@@ -329,6 +371,40 @@ const Auth = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Access Code Field - Only for Officials and Analysts */}
+                {(selectedSignInUserType === 'official' || selectedSignInUserType === 'analyst') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                      Access Code
+                    </label>
+                    <div className="relative">
+                      <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type={showAccessCode ? 'text' : 'password'}
+                        name="accessCode"
+                        value={formData.accessCode}
+                        onChange={handleInputChange}
+                        placeholder={selectedSignInUserType === 'official' ? '••••••••' : '••••••••'}
+                        className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors ${
+                          validationErrors.accessCode ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAccessCode(!showAccessCode)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showAccessCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      {validationErrors.accessCode && (
+                        <div className="absolute top-full left-0 mt-1 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg z-10">
+                          {validationErrors.accessCode}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Sign In Button */}
                 <button

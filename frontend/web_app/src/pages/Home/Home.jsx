@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross, Loader2 } from 'lucide-react';
+import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross, Loader2, RotateCcw } from 'lucide-react';
 import MapView from '../../components/MapView.jsx';
 import Feed from '../../components/Feed';
 import { fetchHotspots, fetchRecentReports } from '../../services/hotspotService.js';
@@ -9,7 +9,7 @@ const Home = () => {
   const [hotspots, setHotspots] = useState([]);
   const [loadingHotspots, setLoadingHotspots] = useState(true);
   const [hotspotError, setHotspotError] = useState('');
-  const [myLocation, setMyLocation] = useState(null); // { lat, lng }
+  const [myLocation, setMyLocation] = useState(null); // { lat, lng, address }
   const [locationAllowed, setLocationAllowed] = useState(null); // null|true|false
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [recentReports, setRecentReports] = useState([]);
@@ -206,6 +206,48 @@ const Home = () => {
     });
   };
 
+  // Function to get address from coordinates using reverse geocoding
+  const getAddressFromCoordinates = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
+      }
+      
+      const data = await response.json();
+      
+      // Extract city/area information from the response
+      const address = data.address || {};
+      const locationName = address.city || 
+                          address.town || 
+                          address.village || 
+                          address.county || 
+                          address.state || 
+                          address.country || 
+                          'Unknown Location';
+      
+      return {
+        fullAddress: data.display_name,
+        city: locationName,
+        area: address.suburb || address.neighbourhood || address.quarter || '',
+        country: address.country || '',
+        state: address.state || ''
+      };
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
+      return {
+        fullAddress: 'Address unavailable',
+        city: 'Unknown Location',
+        area: '',
+        country: '',
+        state: ''
+      };
+    }
+  };
+
   // Function to start location tracking
   const startLocationTracking = () => {
     if (!navigator.geolocation) {
@@ -219,10 +261,17 @@ const Home = () => {
     }
 
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Get address information
+        const address = await getAddressFromCoordinates(lat, lng);
+        
         setMyLocation({ 
-          lat: position.coords.latitude, 
-          lng: position.coords.longitude 
+          lat: lat, 
+          lng: lng,
+          address: address
         });
         setLocationAllowed(true);
       },
@@ -254,7 +303,12 @@ const Home = () => {
       setIsRequestingLocation(true);
       try {
         const location = await getCurrentLocation();
-        setMyLocation(location);
+        // Get address information
+        const address = await getAddressFromCoordinates(location.lat, location.lng);
+        setMyLocation({
+          ...location,
+          address: address
+        });
         setLocationAllowed(true);
         startLocationTracking();
       } catch (error) {
@@ -275,9 +329,14 @@ const Home = () => {
     }
     
     getCurrentLocation()
-      .then((location) => {
+      .then(async (location) => {
         if (!active) return;
-        setMyLocation(location);
+        // Get address information
+        const address = await getAddressFromCoordinates(location.lat, location.lng);
+        setMyLocation({
+          ...location,
+          address: address
+        });
         setLocationAllowed(true);
         startLocationTracking();
       })
@@ -320,105 +379,108 @@ const Home = () => {
         <div className="space-y-8">
           {/* Current Location Card */}
           <div className="bg-slate-50 rounded-xl shadow-lg p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <MapPin className="w-6 h-6 text-blue-800 mr-3" />
-                <h2 className="text-xl font-semibold text-blue-800">Current Location</h2>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <MapPin className="w-6 h-6 text-blue-800 mr-3" />
+                  <h2 className="text-xl font-semibold text-blue-800">Current Location</h2>
+                </div>
+                <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleGPSButtonClick}
+                  disabled={isRequestingLocation}
+                  className={`px-4 py-2 rounded-full text-sm font-medium flex items-center transition-all duration-200 ${
+                    locationAllowed === true
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-md hover:shadow-lg'
+                      : locationAllowed === false
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-md hover:shadow-lg'
+                      : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600 shadow-md hover:shadow-lg'
+                  } ${isRequestingLocation ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  {isRequestingLocation ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      Requesting...
+                    </>
+                  ) : locationAllowed === true ? (
+                    <>
+                      <MapPin className="w-4 h-4 mr-1" />
+                      GPS Active
+                    </>
+                  ) : locationAllowed === false ? (
+                    <>
+                      <Cross className="w-4 h-4 mr-1" />
+                      GPS Inactive
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-4 h-4 mr-1" />
+                      Enable GPS
+                    </>
+                  )}
+                </button>
+                  <button
+                    onClick={() => {
+                      const loadSafetyCircles = async () => {
+                        try {
+                          const authToken = localStorage.getItem('authToken');
+                          if (!authToken) {
+                            console.log('No auth token for manual refresh');
+                            alert('Please log in to load safety circles');
+                            return;
+                          }
+                          
+                          console.log('Manually refreshing safety circles...');
+                          console.log('Current circles before refresh:', safetyCircles.length);
+                          
+                          const response = await fetch('/api/safety-circles/active', {
+                            headers: { 'Authorization': `Bearer ${authToken}` }
+                          });
+                          
+                          console.log('Manual refresh response status:', response.status);
+                          
+                          if (response.ok) {
+                            const circles = await response.json();
+                            console.log('Raw circles from API:', circles);
+                            
+                            const mappedCircles = circles.map(circle => ({
+                              id: `db-${circle.id}`,
+                              lat: circle.latitude,
+                              lng: circle.longitude,
+                              isSafe: circle.is_safe,
+                              color: circle.color,
+                              timestamp: new Date(circle.created_at).getTime(),
+                              reportId: circle.notification_id
+                            }));
+                            
+                            console.log('Mapped circles:', mappedCircles);
+                            
+                            // Force a fresh state update
+                            setSafetyCircles([]);
+                            setTimeout(() => {
+                              setSafetyCircles(mappedCircles);
+                              console.log('Manual refresh: State updated with', mappedCircles.length, 'safety circles');
+                            }, 50);
+                            
+                          } else {
+                            const errorText = await response.text();
+                            console.error('Manual refresh failed:', response.status, errorText);
+                            alert(`Failed to refresh: ${response.status} - ${errorText}`);
+                          }
+                        } catch (error) {
+                          console.error('Manual refresh error:', error);
+                          alert(`Error refreshing circles: ${error.message}`);
+                        }
+                      };
+                      loadSafetyCircles();
+                    }}
+                    className="p-2 rounded-full bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors"
+                    title={`Refresh safety circles (${safetyCircles.length} circles)`}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={handleGPSButtonClick}
-                disabled={isRequestingLocation}
-                className={`px-4 py-2 rounded-full text-sm font-medium flex items-center transition-all duration-200 ${
-                  locationAllowed === true
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-md hover:shadow-lg'
-                    : locationAllowed === false
-                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-md hover:shadow-lg'
-                    : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white hover:from-gray-500 hover:to-gray-600 shadow-md hover:shadow-lg'
-                } ${isRequestingLocation ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
-              >
-                {isRequestingLocation ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    Requesting...
-                  </>
-                ) : locationAllowed === true ? (
-                  <>
-                    <MapPin className="w-4 h-4 mr-1" />
-                    GPS Active
-                  </>
-                ) : locationAllowed === false ? (
-                  <>
-                    <Cross className="w-4 h-4 mr-1" />
-                    GPS Inactive
-                  </>
-                ) : (
-                  <>
-                    <MapPin className="w-4 h-4 mr-1" />
-                    Enable GPS
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  const loadSafetyCircles = async () => {
-                    try {
-                      const authToken = localStorage.getItem('authToken');
-                      if (!authToken) {
-                        console.log('No auth token for manual refresh');
-                        alert('Please log in to load safety circles');
-                        return;
-                      }
-                      
-                      console.log('Manually refreshing safety circles...');
-                      console.log('Current circles before refresh:', safetyCircles.length);
-                      
-                      const response = await fetch('/api/safety-circles/active', {
-                        headers: { 'Authorization': `Bearer ${authToken}` }
-                      });
-                      
-                      console.log('Manual refresh response status:', response.status);
-                      
-                      if (response.ok) {
-                        const circles = await response.json();
-                        console.log('Raw circles from API:', circles);
-                        
-                        const mappedCircles = circles.map(circle => ({
-                          id: `db-${circle.id}`,
-                          lat: circle.latitude,
-                          lng: circle.longitude,
-                          isSafe: circle.is_safe,
-                          color: circle.color,
-                          timestamp: new Date(circle.created_at).getTime(),
-                          reportId: circle.notification_id
-                        }));
-                        
-                        console.log('Mapped circles:', mappedCircles);
-                        
-                        // Force a fresh state update
-                        setSafetyCircles([]);
-                        setTimeout(() => {
-                          setSafetyCircles(mappedCircles);
-                          console.log('Manual refresh: State updated with', mappedCircles.length, 'safety circles');
-                        }, 50);
-                        
-                      } else {
-                        const errorText = await response.text();
-                        console.error('Manual refresh failed:', response.status, errorText);
-                        alert(`Failed to refresh: ${response.status} - ${errorText}`);
-                      }
-                    } catch (error) {
-                      console.error('Manual refresh error:', error);
-                      alert(`Error refreshing circles: ${error.message}`);
-                    }
-                  };
-                  loadSafetyCircles();
-                }}
-                className="ml-3 px-3 py-2 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors"
-                title="Click to manually refresh safety circles from database"
-              >
-                🔄 Refresh Circles ({safetyCircles.length})
-              </button>
-            </div>
             
             {/* Map Container */}
             <div className="h-64 rounded-lg border-2 border-slate-300 overflow-hidden">
@@ -430,7 +492,10 @@ const Home = () => {
                   height="256px"
                   center={myLocation ? [myLocation.lat, myLocation.lng] : [12.9716, 77.5946]}
                   zoom={myLocation ? 13 : 11}
-                  markers={locationAllowed && myLocation ? [{ position: [myLocation.lat, myLocation.lng], popup: 'My Location' }] : []}
+                  markers={locationAllowed && myLocation ? [{ 
+                    position: [myLocation.lat, myLocation.lng], 
+                    popup: myLocation.address ? `${myLocation.address.city}` : 'My Location' 
+                  }] : []}
                   hotspots={hotspots}
                   safetyCircles={safetyCircles}
                 />
@@ -443,12 +508,27 @@ const Home = () => {
             {/* Location Coordinates Display */}
             {locationAllowed && myLocation && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center text-sm text-blue-800">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  <span className="font-medium">Current Position:</span>
-                  <span className="ml-2 font-mono">
-                    {myLocation.lat.toFixed(6)}, {myLocation.lng.toFixed(6)}
-                  </span>
+                <div className="space-y-2">
+                  {/* City/Area Display */}
+                  {myLocation.address && (
+                    <div className="flex items-center text-sm text-blue-800">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      <span className="font-medium">Location:</span>
+                      <span className="ml-2">
+                        {myLocation.address.area && `${myLocation.address.area}, `}
+                        {myLocation.address.city}
+                        {myLocation.address.state && `, ${myLocation.address.state}`}
+                      </span>
+                    </div>
+                  )}
+                  {/* Coordinates Display */}
+                  <div className="flex items-center text-sm text-blue-800">
+                    <Navigation className="w-4 h-4 mr-2" />
+                    <span className="font-medium">Coordinates:</span>
+                    <span className="ml-2 font-mono">
+                      {myLocation.lat.toFixed(6)}, {myLocation.lng.toFixed(6)}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -475,12 +555,24 @@ const Home = () => {
                       <div className="mb-2">
                       <h3 className="font-bold text-gray-900 text-lg leading-tight">{r.hazard_type?.replace('_', ' ') || 'Hazard Report'}</h3>
                     </div>
-                      <div className="mb-4">
+                      <div className="mb-3">
                         <div className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium items-center text-white ${r.status === 'verified' ? 'bg-green-600' : r.status === 'under_verification' ? 'bg-yellow-500' : 'bg-red-600'}` }>
                           <CheckCircle className="w-3.5 h-3.5 mr-1" />
                           {r.status?.replace('_', ' ') || 'status'}
                         </div>
                       </div>
+                      {/* Report Location */}
+                      {(r.latitude && r.longitude) && (
+                        <div className="mb-4">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <MapPin className="w-4 h-4 mr-2 text-blue-600" />
+                            <span className="font-medium">Location:</span>
+                            <span className="ml-1">
+                              {r.location || `${parseFloat(r.latitude).toFixed(4)}, ${parseFloat(r.longitude).toFixed(4)}`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     {r.user_description ? (
                       <p className="text-gray-700 text-base mb-6 leading-relaxed line-clamp-4">{r.user_description}</p>
                     ) : null}
@@ -513,7 +605,7 @@ const Home = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-600">{r.created_at ? new Date(r.created_at).toLocaleString() : ''}</p>
+                        <p className="text-xs font-medium text-gray-600">{r.created_at ? new Date(r.created_at).toLocaleString() : ''}</p>
                         <p className="text-xs text-gray-500">Created</p>
                       </div>
                     </div>
@@ -668,6 +760,7 @@ const Home = () => {
             </div>
             </div>
         </div>
+      </div>
       </div>
     </div>
   );
