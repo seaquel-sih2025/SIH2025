@@ -32,5 +32,8 @@ export const fetchRecentReports = async (limit = 10) => {
     user_city: r.user_city || '',
     user_name: r.user_name || 'Anonymous',
     thumbnail_url: r.thumbnail_url || null,
+    latitude: r.latitude,
+    longitude: r.longitude,
+    location: r.location || null,
   }));
 };

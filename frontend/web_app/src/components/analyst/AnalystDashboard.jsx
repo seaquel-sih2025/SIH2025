@@ -91,9 +91,8 @@ const AnalystDashboard = () => {
   const [queryResults, setQueryResults] = useState([]);
   const [lagAnalysis, setLagAnalysis] = useState([]);
   const [nlpTrends, setNlpTrends] = useState([]);
-  const [reliabilityScores, setReliabilityScores] = useState([]);
   const [socialMediaData, setSocialMediaData] = useState([]);
-  const [performanceMetrics, setPerformanceMetrics] = useState({});
+
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
 
@@ -172,53 +171,6 @@ const AnalystDashboard = () => {
         misinformation_detected: true
       }
     ]);
-    
-    setReliabilityScores([
-      { 
-        user_id: '1', 
-        user_name: 'Dr. Rajesh Kumar', 
-        total_reports: 156, 
-        verified_reports: 142, 
-        reliability_percentage: 91, 
-        avg_confidence_score: 0.89,
-        location: 'Chennai Marine Research',
-        expertise: 'Tsunami Expert',
-        recent_activity: '2 hours ago'
-      },
-      { 
-        user_id: '2', 
-        user_name: 'Priya Sharma', 
-        total_reports: 89, 
-        verified_reports: 81, 
-        reliability_percentage: 91, 
-        avg_confidence_score: 0.87,
-        location: 'Mumbai Coast Guard',
-        expertise: 'Coastal Observer',
-        recent_activity: '4 hours ago'
-      },
-      { 
-        user_id: '3', 
-        user_name: 'Captain Arjun Singh', 
-        total_reports: 203, 
-        verified_reports: 178, 
-        reliability_percentage: 88, 
-        avg_confidence_score: 0.85,
-        location: 'Visakhapatnam Port',
-        expertise: 'Marine Operations',
-        recent_activity: '1 hour ago'
-      },
-      { 
-        user_id: '4', 
-        user_name: 'Meera Nair', 
-        total_reports: 67, 
-        verified_reports: 58, 
-        reliability_percentage: 87, 
-        avg_confidence_score: 0.83,
-        location: 'Kochi Fisheries',
-        expertise: 'Local Observer',
-        recent_activity: '6 hours ago'
-      }
-    ]);
 
     // Fetch social media data from database
     const fetchSocialMediaData = async () => {
@@ -279,17 +231,7 @@ const AnalystDashboard = () => {
     
     fetchSocialMediaData();
 
-    setPerformanceMetrics({
-      model_accuracy: 87.3,
-      false_positive_rate: 8.2,
-      false_negative_rate: 4.5,
-      avg_processing_time: 2.3,
-      data_quality_score: 92.1,
-      api_uptime: 99.7,
-      total_processed_reports: 45678,
-      verified_reports: 39234,
-      rejected_reports: 6444
-    });
+
   }, []);
 
   const handleCustomQuery = async () => {
@@ -430,12 +372,6 @@ const AnalystDashboard = () => {
     if (score >= 8) return 'text-red-600 bg-red-100';
     if (score >= 6) return 'text-orange-600 bg-orange-100';
     return 'text-yellow-600 bg-yellow-100';
-  };
-
-  const getReliabilityColor = (percentage) => {
-    if (percentage >= 85) return 'text-green-600 bg-green-100';
-    if (percentage >= 70) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
   };
 
   // Advanced Query Builder Functions
@@ -686,23 +622,6 @@ const AnalystDashboard = () => {
               
               {/* Desktop Controls */}
               <div className="hidden lg:flex items-center space-x-3">
-              <button
-                onClick={() => handleExportData('csv')}
-                disabled={exportLoading}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </button>
-              <button
-                onClick={() => handleExportData('json')}
-                disabled={exportLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
-              >
-                <Code className="w-4 h-4 mr-2" />
-                Export JSON
-              </button>
-              
               {/* Auto-refresh controls */}
               <div className="flex items-center space-x-2 bg-white rounded-lg px-3 py-2 border">
                 <button
@@ -812,7 +731,7 @@ const AnalystDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Model Accuracy</p>
-                <p className="text-3xl font-bold text-gray-900">{performanceMetrics.model_accuracy}%</p>
+                <p className="text-3xl font-bold text-gray-900">87.3%</p>
               </div>
               <div className="bg-green-100 p-3 rounded-lg">
                 <Target className="w-6 h-6 text-green-600" />
@@ -828,7 +747,7 @@ const AnalystDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Response Time</p>
-                <p className="text-3xl font-bold text-gray-900">{performanceMetrics.avg_processing_time}s</p>
+                <p className="text-3xl font-bold text-gray-900">2.3s</p>
               </div>
               <div className="bg-blue-100 p-3 rounded-lg">
                 <Zap className="w-6 h-6 text-blue-600" />
@@ -844,7 +763,7 @@ const AnalystDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Data Quality</p>
-                <p className="text-3xl font-bold text-gray-900">{performanceMetrics.data_quality_score}%</p>
+                <p className="text-3xl font-bold text-gray-900">92.1%</p>
               </div>
               <div className="bg-purple-100 p-3 rounded-lg">
                 <Shield className="w-6 h-6 text-purple-600" />
@@ -860,7 +779,7 @@ const AnalystDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">API Uptime</p>
-                <p className="text-3xl font-bold text-gray-900">{performanceMetrics.api_uptime}%</p>
+                <p className="text-3xl font-bold text-gray-900">99.7%</p>
               </div>
               <div className="bg-orange-100 p-3 rounded-lg">
                 <Activity className="w-6 h-6 text-orange-600" />
@@ -888,39 +807,37 @@ const AnalystDashboard = () => {
               <option value="query-builder">🔍 Advanced Query Builder</option>
               <option value="lag-analysis">⏱️ Response Time Analysis</option>
               <option value="nlp-dashboard">🧠 Social Media Intelligence</option>
-              <option value="reliability-scores">👥 Community Reliability</option>
-              <option value="performance">📊 System Performance</option>
               <option value="export-api">📤 Data Export & API</option>
             </select>
           </div>
           
           {/* Desktop Tab Navigation */}
-          <nav className="hidden sm:flex -mb-px space-x-1 overflow-x-auto">
-            {[
-              { id: 'real-time', name: 'Live Dashboard', shortName: 'Live', icon: Activity },
-              { id: 'advanced-analytics', name: 'Advanced Analytics', shortName: 'Analytics', icon: TrendingUp },
-              { id: 'alert-management', name: 'Alert Center', shortName: 'Alerts', icon: AlertCircle },
-              { id: 'query-builder', name: 'Query Builder', shortName: 'Query', icon: Search },
-              { id: 'lag-analysis', name: 'Response Time', shortName: 'Time', icon: Clock },
-              { id: 'nlp-dashboard', name: 'Social Media', shortName: 'Social', icon: Brain },
-              { id: 'reliability-scores', name: 'Reliability', shortName: 'Trust', icon: Users },
-              { id: 'performance', name: 'Performance', shortName: 'Perf', icon: BarChart3 },
-              { id: 'export-api', name: 'Export & API', shortName: 'Export', icon: Download }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center py-4 px-2 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <tab.icon className="w-4 h-4 mr-1 flex-shrink-0" />
-                <span className="hidden lg:inline">{tab.name}</span>
-                <span className="lg:hidden">{tab.shortName}</span>
-              </button>
-            ))}
+          <nav className="hidden sm:flex -mb-px w-full px-4 overflow-x-auto">
+            <div className="flex space-x-6 min-w-max">
+              {[
+                { id: 'real-time', name: 'Live Dashboard', shortName: 'Live', icon: Activity },
+                { id: 'advanced-analytics', name: 'Advanced Analytics', shortName: 'Analytics', icon: TrendingUp },
+                { id: 'alert-management', name: 'Alert Center', shortName: 'Alerts', icon: AlertCircle },
+                { id: 'query-builder', name: 'Query Builder', shortName: 'Query', icon: Search },
+                { id: 'lag-analysis', name: 'Response Time', shortName: 'Time', icon: Clock },
+                { id: 'nlp-dashboard', name: 'Social Media', shortName: 'Social', icon: Brain },
+                { id: 'export-api', name: 'Export & API', shortName: 'Export', icon: Download }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center py-4 px-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors duration-200 ${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <span className="hidden lg:inline">{tab.name}</span>
+                  <span className="lg:hidden">{tab.shortName}</span>
+                </button>
+              ))}
+            </div>
           </nav>
         </div>
 
@@ -2528,262 +2445,7 @@ const AnalystDashboard = () => {
             </div>
           )}
 
-          {/* Community Reliability Tab */}
-          {activeTab === 'reliability-scores' && (
-            <div className="bg-white rounded-xl shadow-sm border">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <Users className="w-5 h-5 mr-2" />
-                  Community Reliability Scorecard
-                </h2>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {reliabilityScores.map((user, index) => (
-                    <div key={user.user_id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-medium">{user.user_name}</h4>
-                          <p className="text-sm text-gray-500">{user.location}</p>
-                          <p className="text-sm text-gray-500">{user.total_reports} reports • {user.expertise}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getReliabilityColor(user.reliability_percentage)}`}>
-                            {user.reliability_percentage}%
-                          </span>
-                          <p className="text-xs text-gray-500 mt-1">{user.recent_activity}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* System Performance Tab */}
-          {activeTab === 'performance' && (
-            <div className="space-y-6">
-              {/* Performance Overview Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow-sm border p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">API Response Time</p>
-                      <p className="text-3xl font-bold text-green-600">142ms</p>
-                    </div>
-                    <div className="p-3 bg-green-100 rounded-full">
-                      <Zap className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center">
-                    <ArrowDownRight className="w-4 h-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">15ms faster</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">System Uptime</p>
-                      <p className="text-3xl font-bold text-blue-600">99.9%</p>
-                    </div>
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <Shield className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center">
-                    <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">Excellent</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Active Connections</p>
-                      <p className="text-3xl font-bold text-purple-600">1,247</p>
-                    </div>
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <Users className="w-6 h-6 text-purple-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center">
-                    <ArrowUpRight className="w-4 h-4 text-purple-500 mr-1" />
-                    <span className="text-sm text-purple-600">+12% today</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Error Rate</p>
-                      <p className="text-3xl font-bold text-orange-600">0.3%</p>
-                    </div>
-                    <div className="p-3 bg-orange-100 rounded-full">
-                      <AlertCircle className="w-6 h-6 text-orange-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center">
-                    <ArrowDownRight className="w-4 h-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-600">0.2% decrease</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Real-time Performance Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* API Performance Chart */}
-                <div className="bg-white rounded-xl shadow-sm border">
-                  <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <Activity className="w-5 h-5 mr-2" />
-                      API Performance Trends
-                    </h3>
-                  </div>
-                  <div className="p-6">
-                    <div className="h-64 bg-gradient-to-br from-green-50 to-blue-50 rounded-lg flex items-center justify-center relative">
-                      {/* Simulated Line Chart */}
-                      <div className="absolute inset-0 p-4">
-                        <svg className="w-full h-full" viewBox="0 0 400 200">
-                          <polyline
-                            points="0,150 50,120 100,110 150,140 200,100 250,90 300,85 350,80 400,75"
-                            fill="none"
-                            stroke="#10b981"
-                            strokeWidth="3"
-                            className="drop-shadow-sm"
-                          />
-                          <polyline
-                            points="0,180 50,160 100,140 150,170 200,130 250,120 300,115 350,110 400,105"
-                            fill="none"
-                            stroke="#3b82f6"
-                            strokeWidth="2"
-                            strokeDasharray="5,5"
-                          />
-                        </svg>
-                      </div>
-                      <div className="relative text-center">
-                        <div className="text-lg font-bold text-gray-700">Real-time Response Times</div>
-                        <div className="text-sm text-gray-500 mt-2">
-                          <span className="inline-flex items-center mr-4">
-                            <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
-                            API Calls
-                          </span>
-                          <span className="inline-flex items-center">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-1"></div>
-                            Database Queries
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* System Health */}
-                <div className="bg-white rounded-xl shadow-sm border">
-                  <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <Shield className="w-5 h-5 mr-2" />
-                      System Health Monitor
-                    </h3>
-                  </div>
-                  <div className="p-6 space-y-4">
-                    {[
-                      { service: 'API Gateway', status: 'healthy', response: '98ms', uptime: '99.9%' },
-                      { service: 'Database', status: 'healthy', response: '45ms', uptime: '100%' },
-                      { service: 'Cache Layer', status: 'healthy', response: '12ms', uptime: '99.8%' },
-                      { service: 'Message Queue', status: 'warning', response: '230ms', uptime: '98.5%' },
-                      { service: 'File Storage', status: 'healthy', response: '156ms', uptime: '99.7%' }
-                    ].map((service, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center">
-                          <div className={`w-3 h-3 rounded-full mr-3 ${
-                            service.status === 'healthy' ? 'bg-green-500' :
-                            service.status === 'warning' ? 'bg-yellow-500' :
-                            'bg-red-500'
-                          }`}></div>
-                          <div>
-                            <p className="font-medium text-gray-900">{service.service}</p>
-                            <p className="text-sm text-gray-500">Response: {service.response}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{service.uptime}</p>
-                          <p className="text-xs text-gray-500">uptime</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Alerts and Notifications */}
-              <div className="bg-white rounded-xl shadow-sm border">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                    <AlertCircle className="w-5 h-5 mr-2" />
-                    System Alerts & Notifications
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {[
-                    { 
-                      type: 'warning', 
-                      title: 'High Response Time Detected', 
-                      message: 'Message queue response time increased to 230ms', 
-                      time: '2 minutes ago',
-                      severity: 'medium'
-                    },
-                    { 
-                      type: 'info', 
-                      title: 'System Update Completed', 
-                      message: 'Database optimization completed successfully', 
-                      time: '15 minutes ago',
-                      severity: 'low'
-                    },
-                    { 
-                      type: 'success', 
-                      title: 'Performance Improvement', 
-                      message: 'API response time improved by 15ms after cache optimization', 
-                      time: '1 hour ago',
-                      severity: 'low'
-                    }
-                  ].map((alert, index) => (
-                    <div key={index} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start">
-                        <div className={`p-2 rounded-full mr-4 ${
-                          alert.type === 'warning' ? 'bg-yellow-100' :
-                          alert.type === 'info' ? 'bg-blue-100' :
-                          'bg-green-100'
-                        }`}>
-                          {alert.type === 'warning' ? 
-                            <AlertCircle className="w-5 h-5 text-yellow-600" /> :
-                            alert.type === 'info' ?
-                            <Activity className="w-5 h-5 text-blue-600" /> :
-                            <TrendingUp className="w-5 h-5 text-green-600" />
-                          }
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-gray-900">{alert.title}</h4>
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              alert.severity === 'high' ? 'bg-red-100 text-red-700' :
-                              alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
-                              {alert.severity}
-                            </span>
-                          </div>
-                          <p className="text-gray-600 mt-1">{alert.message}</p>
-                          <p className="text-sm text-gray-500 mt-2">{alert.time}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Data Export & API Tab */}
           {activeTab === 'export-api' && (
@@ -2818,7 +2480,6 @@ const AnalystDashboard = () => {
                     <div className="bg-gray-50 rounded-lg p-4 text-sm font-mono">
                       <p>GET /api/analyst/reports</p>
                       <p>GET /api/analyst/social-media</p>
-                      <p>GET /api/analyst/reliability</p>
                       <p>POST /api/analyst/query</p>
                     </div>
                   </div>

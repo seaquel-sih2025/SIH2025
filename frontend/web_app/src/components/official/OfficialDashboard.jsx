@@ -749,7 +749,7 @@ const OfficialDashboard = () => {
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 text-left">
               <Timer className="w-4 h-4 text-orange-500 inline mr-1" />
               <span className="text-sm text-orange-600">Requires immediate attention</span>
             </div>
@@ -765,7 +765,7 @@ const OfficialDashboard = () => {
                 <Truck className="w-6 h-6 text-blue-600" />
               </div>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 text-left">
               <CheckCircle className="w-4 h-4 text-green-500 inline mr-1" />
               <span className="text-sm text-green-600">All units operational</span>
             </div>
@@ -781,7 +781,7 @@ const OfficialDashboard = () => {
                 <Building className="w-6 h-6 text-green-600" />
               </div>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 text-left">
               <Shield className="w-4 h-4 text-green-500 inline mr-1" />
               <span className="text-sm text-green-600">Systems operational</span>
             </div>
@@ -797,7 +797,7 @@ const OfficialDashboard = () => {
                 <Zap className="w-6 h-6 text-purple-600" />
               </div>
             </div>
-            <div className="mt-2">
+            <div className="mt-2 text-left">
               <TrendingUp className="w-4 h-4 text-green-500 inline mr-1" />
               <span className="text-sm text-green-600">15% improvement</span>
             </div>
@@ -852,7 +852,7 @@ const OfficialDashboard = () => {
                       </button>
                     </div>
                   </div>
-                  <p className="text-gray-600 mt-2">Review and verify unverified crowdsourced reports with complete audit trail.</p>
+                  <p className="text-gray-600 mt-2 text-left">Review and verify unverified crowdsourced reports with complete audit trail.</p>
                 </div>
                 
                 <div className="p-6">

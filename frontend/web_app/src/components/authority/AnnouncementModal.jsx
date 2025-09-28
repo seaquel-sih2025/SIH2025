@@ -24,23 +24,25 @@ const AnnouncementModal = ({ onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <div className="text-center w-full">
-            <div className="bg-blue-600 p-3 rounded-lg inline-block mb-4">
-              <MessageSquare className="w-6 h-6 text-white" />
+          <div className="flex items-center">
+            <div className="bg-gray-100 p-2 rounded-lg mr-3">
+              <MessageSquare className="w-5 h-5 text-gray-600" />
             </div>
-            <h2 className="text-2xl font-bold text-blue-600">Create Announcement</h2>
-            <p className="text-gray-600 mt-2">Broadcast important information to citizens and keep your community informed with professional announcements</p>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">Create Announcement</h2>
+              <p className="text-sm text-gray-500">Broadcast important information to citizens</p>
+            </div>
           </div>
-          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-            <X className="w-6 h-6" />
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 rounded-lg">
-            <h3 className="font-semibold flex items-center">
-              <MessageSquare className="w-5 h-5 mr-2" />
+          <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+            <h3 className="font-medium text-gray-700 flex items-center">
+              <MessageSquare className="w-4 h-4 mr-2" />
               Basic Information
             </h3>
           </div>
@@ -53,7 +55,7 @@ const AnnouncementModal = ({ onClose }) => {
                 placeholder="e.g. Water Supply Disruption"
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                 required
               />
             </div>
@@ -62,7 +64,7 @@ const AnnouncementModal = ({ onClose }) => {
               <select
                 value={formData.priority}
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -80,15 +82,15 @@ const AnnouncementModal = ({ onClose }) => {
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
               required
             />
           </div>
 
           {/* Location Information */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-4 rounded-lg">
-            <h3 className="font-semibold flex items-center">
-              <MapPin className="w-5 h-5 mr-2" />
+          <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+            <h3 className="font-medium text-gray-700 flex items-center">
+              <MapPin className="w-4 h-4 mr-2" />
               Location Information
             </h3>
           </div>
@@ -101,7 +103,7 @@ const AnnouncementModal = ({ onClose }) => {
                 placeholder="e.g. Sector 21, Bangalore"
                 value={formData.locationName}
                 onChange={(e) => setFormData({...formData, locationName: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                 required
               />
             </div>
@@ -112,7 +114,7 @@ const AnnouncementModal = ({ onClose }) => {
                 placeholder="560021"
                 value={formData.pincode}
                 onChange={(e) => setFormData({...formData, pincode: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                 required
               />
               <p className="text-xs text-gray-500 mt-1">6-digit Indian pincode</p>
@@ -120,9 +122,9 @@ const AnnouncementModal = ({ onClose }) => {
           </div>
 
           {/* Schedule Information */}
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg">
-            <h3 className="font-semibold flex items-center">
-              <Calendar className="w-5 h-5 mr-2" />
+          <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+            <h3 className="font-medium text-gray-700 flex items-center">
+              <Calendar className="w-4 h-4 mr-2" />
               Schedule Information (Optional)
             </h3>
           </div>
@@ -134,7 +136,7 @@ const AnnouncementModal = ({ onClose }) => {
                 type="datetime-local"
                 value={formData.scheduledDate}
                 onChange={(e) => setFormData({...formData, scheduledDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
               />
               <p className="text-xs text-gray-500 mt-1">When this announcement applies</p>
             </div>
@@ -144,7 +146,7 @@ const AnnouncementModal = ({ onClose }) => {
                 type="datetime-local"
                 value={formData.expiryDate}
                 onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
               />
               <p className="text-xs text-gray-500 mt-1">When this announcement expires</p>
             </div>
@@ -160,7 +162,7 @@ const AnnouncementModal = ({ onClose }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+              className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 flex items-center"
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               Create Announcement

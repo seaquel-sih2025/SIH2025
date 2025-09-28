@@ -45,14 +45,6 @@ class TrendData(BaseModel):
     sentiment_score: float
     time_period: str
 
-class ReliabilityScore(BaseModel):
-    user_id: UUID
-    user_name: str
-    total_reports: int
-    verified_reports: int
-    reliability_percentage: float
-    avg_confidence_score: float
-
 @router.post("/query", response_model=QueryResponse)
 async def custom_data_query(
     filters: QueryFilters,
@@ -194,51 +186,6 @@ async def get_nlp_trends(
     ]
     
     return mock_trends
-
-@router.get("/reliability-scores", response_model=List[ReliabilityScore])
-async def get_reliability_scores(
-    limit: int = Query(50, ge=1, le=200),
-    min_reports: int = Query(5, ge=1, le=50),
-    current_user: User = Depends(get_current_analyst),
-    db: AsyncSession = Depends(get_db)
-):
-    """Citizen reliability scorecard based on verification history."""
-    
-    # Query to get user reliability stats
-    query = text("""
-        SELECT 
-            u.id as user_id,
-            u.full_name as user_name,
-            COUNT(r.id) as total_reports,
-            COUNT(CASE WHEN r.status = 'verified' THEN 1 END) as verified_reports,
-            ROUND(
-                (COUNT(CASE WHEN r.status = 'verified' THEN 1 END)::float / COUNT(r.id) * 100), 2
-            ) as reliability_percentage,
-            ROUND(AVG(r.final_confidence_score), 2) as avg_confidence_score
-        FROM users u
-        JOIN reports r ON u.id = r.user_id
-        WHERE u.role = 'citizen'
-        GROUP BY u.id, u.full_name
-        HAVING COUNT(r.id) >= :min_reports
-        ORDER BY reliability_percentage DESC, total_reports DESC
-        LIMIT :limit
-    """)
-    
-    result = await db.execute(query, {"min_reports": min_reports, "limit": limit})
-    rows = result.fetchall()
-    
-    reliability_scores = []
-    for row in rows:
-        reliability_scores.append(ReliabilityScore(
-            user_id=row.user_id,
-            user_name=row.user_name,
-            total_reports=row.total_reports,
-            verified_reports=row.verified_reports,
-            reliability_percentage=float(row.reliability_percentage),
-            avg_confidence_score=float(row.avg_confidence_score or 0)
-        ))
-    
-    return reliability_scores
 
 @router.get("/export")
 async def export_data(

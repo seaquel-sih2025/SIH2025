@@ -177,6 +177,51 @@ async def create_incident_chat(
         "timestamp": "2024-01-01T00:00:00Z"  # Replace with actual timestamp
     }
 
+@router.get("/reports/all", response_model=List[UnverifiedReportResponse])
+async def get_all_reports(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    status_filter: Optional[ReportStatus] = None,
+    hazard_type: Optional[HazardType] = None,
+    current_user: User = Depends(get_current_official),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all reports with optional filtering by status and hazard type."""
+    
+    query = select(Report)
+    
+    if status_filter:
+        query = query.where(Report.status == status_filter)
+    
+    if hazard_type:
+        query = query.where(Report.user_hazard_type == hazard_type)
+    
+    query = query.offset(offset).limit(limit).order_by(Report.created_at.desc())
+    
+    result = await db.execute(query)
+    reports = result.scalars().all()
+    
+    # Convert to response format
+    response_reports = []
+    for report in reports:
+        # Get user info
+        user_query = select(User).where(User.id == report.user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalars().first()
+        
+        response_reports.append(UnverifiedReportResponse(
+            id=report.id,
+            user_id=report.user_id,
+            user_hazard_type=report.user_hazard_type,
+            user_description=report.user_description,
+            user_city=report.user_city,
+            final_confidence_score=report.final_confidence_score,
+            created_at=report.created_at.isoformat(),
+            user=UserRead.model_validate(user)
+        ))
+    
+    return response_reports
+
 @router.get("/alerts/hotspots", response_model=List[HotspotData])
 async def get_hotspots(
     hours_back: int = Query(24, ge=1, le=168),  # Last 24 hours by default, max 1 week

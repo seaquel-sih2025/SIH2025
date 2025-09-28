@@ -35,6 +35,7 @@ const ProfileModal = ({ onClose }) => {
   // Handled issues and stats
   const [allReports, setAllReports] = useState([]);
   const [handledIssues, setHandledIssues] = useState([]);
+  const [userRejectedReports, setUserRejectedReports] = useState([]);
   const [userStats, setUserStats] = useState({
     resolved: 0,
     inProgress: 0,
@@ -43,6 +44,20 @@ const ProfileModal = ({ onClose }) => {
     total: 0
   });
   const [issuesLoading, setIssuesLoading] = useState(true);
+
+  // Handle rejecting a report
+  const handleRejectReport = (report) => {
+    // Add to user rejected reports if not already rejected
+    if (!userRejectedReports.find(r => r.id === report.id)) {
+      setUserRejectedReports(prev => [...prev, report]);
+      
+      // Update stats
+      setUserStats(prev => ({
+        ...prev,
+        rejected: prev.rejected + 1
+      }));
+    }
+  };
 
   // Fetch user profile data
   useEffect(() => {
@@ -89,28 +104,12 @@ const ProfileModal = ({ onClose }) => {
       try {
         setIssuesLoading(true);
         
-        // Fetch all types of reports
-        const [unverifiedResponse, recentResponse] = await Promise.all([
-          api.get('/official/reports/unverified?limit=50'),
-          api.get('/reports/recent?limit=50')
-        ]);
-        
-        const unverifiedReports = unverifiedResponse.data || [];
-        const recentReports = recentResponse.data || [];
-        
-        // Combine all reports and remove duplicates by id
-        const allReportsMap = new Map();
-        
-        [...recentReports, ...unverifiedReports].forEach(report => {
-          if (!allReportsMap.has(report.id)) {
-            allReportsMap.set(report.id, report);
-          }
-        });
-        
-        const combinedReports = Array.from(allReportsMap.values());
+        // Fetch all reports from the new endpoint
+        const allReportsResponse = await api.get('/official/reports/all?limit=100');
+        const allReportsData = allReportsResponse.data || [];
         
         // Transform reports for display
-        const transformedReports = combinedReports.map((report) => ({
+        const transformedReports = allReportsData.map((report) => ({
           id: report.id,
           title: report.user_description || `${report.user_hazard_type} Report`,
           status: report.status === 'verified' ? 'Resolved' : 
@@ -215,10 +214,10 @@ const ProfileModal = ({ onClose }) => {
       case 'Pending':
         return allReports.filter(report => report.originalStatus === 'pending');
       case 'Rejected':
-        return allReports.filter(report => report.originalStatus === 'rejected');
+        return userRejectedReports; // Show reports rejected by the current user
       case 'All':
       default:
-        return allReports;
+        return allReports; // Show all reports in All tab
     }
   };
 
@@ -545,9 +544,20 @@ const ProfileModal = ({ onClose }) => {
                           </span>
                         )}
                       </div>
-                      <button className="text-blue-600 hover:text-blue-700 text-sm font-medium bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">
-                        View Details
-                      </button>
+                      <div className="flex space-x-2">
+                        <button className="text-blue-600 hover:text-blue-700 text-sm font-medium bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">
+                          View Details
+                        </button>
+                        {/* Show reject button only if not already rejected by user and not in rejected tab */}
+                        {activeReportTab !== 'Rejected' && !userRejectedReports.find(r => r.id === issue.id) && (
+                          <button 
+                            onClick={() => handleRejectReport(issue)}
+                            className="text-red-600 hover:text-red-700 text-sm font-medium bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            Reject
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
