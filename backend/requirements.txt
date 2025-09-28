@@ -52,3 +52,5 @@ sqlite-utils
 
 #s3
 boto3
+
+gunicorn==21.2.0

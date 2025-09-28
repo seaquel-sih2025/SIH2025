@@ -29,31 +29,39 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Supports both bcrypt and fallback hashing methods.
     """
     try:
-        # Handle bcrypt's 72-byte limit by using SHA-256 pre-hashing for long passwords
-        if BCRYPT_AVAILABLE and len(plain_password.encode('utf-8')) > 72:
-            plain_password = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+        # Check if it's a fallback SHA-256 hash first
+        if hashed_password.startswith('sha256$'):
+            # Parse the fallback hash format: sha256$salt$hash
+            parts = hashed_password.split('$')
+            if len(parts) == 3:
+                salt = parts[1]
+                expected_hash = parts[2]
+                password_with_salt = plain_password + salt
+                actual_hash = hashlib.sha256(password_with_salt.encode('utf-8')).hexdigest()
+                return actual_hash == expected_hash
+            return False
         
-        return pwd_context.verify(plain_password, hashed_password)
+        # For bcrypt hashes, pre-hash passwords longer than 72 bytes
+        password_to_verify = plain_password
+        if len(plain_password.encode('utf-8')) > 72:
+            password_to_verify = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+        
+        return pwd_context.verify(password_to_verify, hashed_password)
     except Exception as e:
         print(f"Password verification error: {e}")
-        # Try fallback verification for legacy hashes
-        try:
-            # Check if it's a simple SHA-256 hash
-            plain_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
-            return plain_hash == hashed_password
-        except:
-            return False
+        return False
 
 def hash_password(password: str) -> str:
     """
     Hash a password using the available method (bcrypt or fallback).
     """
     try:
-        # Handle bcrypt's 72-byte limit by using SHA-256 pre-hashing for long passwords
-        if BCRYPT_AVAILABLE and len(password.encode('utf-8')) > 72:
-            password = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        # Always pre-hash passwords longer than 72 bytes to handle bcrypt's limit
+        password_to_hash = password
+        if len(password.encode('utf-8')) > 72:
+            password_to_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
         
-        return pwd_context.hash(password)
+        return pwd_context.hash(password_to_hash)
     except Exception as e:
         print(f"Password hashing error: {e}")
         # Fallback to SHA-256 with salt

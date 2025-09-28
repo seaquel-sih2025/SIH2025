@@ -230,3 +230,84 @@ PROFILE_SETUP.md
 WORKFLOW.md
 frontend/web-app/.env
 *.env*
+*offline_data.db*
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+.docker/
+
+# Container runtime
+.container-*
+
+
+# Render deployment
+.render/
+
+# Vercel
+.vercel/
+
+# Railway
+.railway/
+
+# AWS
+.aws/
+
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Database dumps
+*.sql
+
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# SSH keys
+id_rsa
+id_ed25519
+*.pub
+
+# Sentry
+.sentryclirc
+
+# Performance monitoring
+.lighthouse/
+
+
+
+# Test results
+test-results/
+playwright-report/
+test-output/
+
+
+
+# Flutter build variants
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# iOS build
+**/ios/Runner.app
+**/ios/Runner.app.dSYM.zip
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+
+
+# Package managers
+.pnpm-store/
+.yarn/
+
+# Backup files
+*.bak
+*.backup
+*.orig

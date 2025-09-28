@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.api import api_router
 from app.core.config import settings
+import os
 from app.services.rabbitmq_service import rabbitmq_service
 from app.services.connectivity_service import connectivity_service
 from app.services.sync_service import sync_service
@@ -15,11 +16,35 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# Configure CORS for production and development
+allowed_origins = [
+    "http://localhost:5173",  # Local Vite dev server
+    "http://localhost:3000",  # Alternative local dev server
+    "http://127.0.0.1:5173",  # Local Vite dev server (alternative)
+]
+
+# Add production frontend URLs from environment variables
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
+# Add Vercel deployment URLs (common pattern)
+vercel_url = os.getenv("VERCEL_URL")
+if vercel_url:
+    allowed_origins.extend([
+        f"https://{vercel_url}",
+        f"https://*.{vercel_url}",  # For preview deployments
+    ])
+
+# In development, allow all origins
+if os.getenv("ENVIRONMENT", "development") == "development":
+    allowed_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 

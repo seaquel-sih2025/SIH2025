@@ -9,8 +9,11 @@ class Settings(BaseSettings):
     """
     # --- Core Services ---
     DATABASE_URL: str
-    SYNC_DATABASE_URL: str
-    RABBITMQ_URL: str
+    SYNC_DATABASE_URL: Optional[str] = None
+    RABBITMQ_URL: Optional[str] = None
+    
+    # --- Render.com Port ---
+    PORT: int = 8000
     
     # --- JWT Security ---
     SECRET_KEY: str
@@ -18,33 +21,45 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # --- AWS S3 Settings ---
-    AWS_ACCESS_KEY_ID: str
-    AWS_SECRET_ACCESS_KEY: str
-    AWS_S3_BUCKET_NAME: str
-    AWS_S3_REGION: str
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_S3_BUCKET_NAME: Optional[str] = None
+    AWS_S3_REGION: Optional[str] = None
 
-    WEATHERAPI_KEY: str
+    WEATHERAPI_KEY: Optional[str] = None
     
     # --- AI/LLM Settings ---
-    GEMINI_API_KEY: str
+    GEMINI_API_KEY: Optional[str] = None
     
     # --- Backend URL ---
-    BACKEND_URL: str
+    BACKEND_URL: Optional[str] = None
+    
+    # --- Frontend URL (for CORS) ---
+    FRONTEND_URL: Optional[str] = None
+    ENVIRONMENT: str = "development"
     
     # --- Firebase Settings ---
-    FIREBASE_PROJECT_ID: str
+    FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_PRIVATE_KEY_ID: Optional[str] = None
     FIREBASE_PRIVATE_KEY: Optional[str] = None
     FIREBASE_CLIENT_EMAIL: Optional[str] = None
     FIREBASE_CLIENT_ID: Optional[str] = None
-    FIREBASE_AUTH_URI: str
-    FIREBASE_TOKEN_URI: str
+    FIREBASE_AUTH_URI: Optional[str] = "https://accounts.google.com/o/oauth2/auth"
+    FIREBASE_TOKEN_URI: Optional[str] = "https://oauth2.googleapis.com/token"
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding='utf-8',
         case_sensitive=False
     )
+    
+    @property
+    def sync_database_url(self) -> str:
+        """Convert async DATABASE_URL to sync version for migrations/sync operations"""
+        if self.SYNC_DATABASE_URL:
+            return self.SYNC_DATABASE_URL
+        # Convert postgresql+asyncpg:// to postgresql://
+        return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://").replace("asyncpg://", "postgresql://")
 
 settings = Settings()
 

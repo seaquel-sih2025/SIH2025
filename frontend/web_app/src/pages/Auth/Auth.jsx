@@ -337,10 +337,6 @@ const Auth = () => {
                 >
                   Sign In to Pravaah
                 </button>
-
-                <p className="text-xs text-gray-500 text-center">
-                  By continuing, you agree to our Terms of Service and Privacy Policy
-                </p>
               </form>
             )}
 
