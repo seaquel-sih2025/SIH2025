@@ -269,13 +269,13 @@ const Navbar = () => {
   // Role-based navigation items
   const getRoleBasedNavItems = () => {
     const dashboardRoute = getDashboardRoute();
-    const dashboardLabel = userRole === 'official' ? 'Official' : 
+    const dashboardLabel = userRole === 'official' ? 'Dashboard' : 
                           userRole === 'analyst' ? 'Analytics' : 'Dashboard';
     const dashboardIcon = userRole === 'official' ? Shield : 
                          userRole === 'analyst' ? BarChart3 : Home;
 
     if (userRole === 'official') {
-      return [{ path: dashboardRoute, label: dashboardLabel, icon: dashboardIcon }];
+      return [];
     }
     if (userRole === 'analyst') {
       return [];

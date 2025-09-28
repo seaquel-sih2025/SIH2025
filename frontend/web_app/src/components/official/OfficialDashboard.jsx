@@ -614,31 +614,6 @@ const OfficialDashboard = () => {
     setShowTimelineModal(true);
   };
 
-  const handleLogout = async () => {
-    try {
-      console.log('Logging out...');
-      
-      // Clear all authentication data
-      localStorage.clear(); // This clears all localStorage data
-      
-      // Alternative: Clear specific items if you want to preserve other data
-      // localStorage.removeItem('authToken');
-      // localStorage.removeItem('userRole');
-      // localStorage.removeItem('userId');
-      
-      // Small delay to ensure localStorage is cleared
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Navigate to the root path which should redirect to auth
-      window.location.href = '/';
-      
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Force reload as fallback
-      window.location.reload();
-    }
-  };
-
   const filteredReports = reports.filter(report => {
     const matchesSearch = report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.location?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -659,49 +634,6 @@ const OfficialDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Pravaah Navbar */}
-      <nav className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-3">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h1 className="text-xl font-bold text-blue-600 text-left">Pravaah</h1>
-                  <p className="text-xs text-gray-500 text-left">Building Better Communities</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right side actions */}
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-sm text-gray-700 font-medium">{userInfo.name}</div>
-                <div className="text-xs text-gray-500">{userInfo.email}</div>
-              </div>
-              
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                {userInfo.name.charAt(0).toUpperCase()}
-              </div>
-              
-              <button className="text-gray-500 hover:text-gray-700">
-                <Bell className="w-5 h-5" />
-              </button>
-              
-              <button 
-                onClick={handleLogout}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       {/* Dashboard Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
         <div className="container mx-auto px-6 py-6">
