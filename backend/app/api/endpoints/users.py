@@ -10,6 +10,7 @@ from app.models.pydantic_models import UserRead, UserUpdate
 from app.db.models import User, Report
 from app.db.session import get_db
 from app.api.dependencies import get_current_user
+from app.services.img_to_hazard_simple import analyze_ocean_hazard
 
 router = APIRouter()
 
@@ -44,6 +45,7 @@ async def upload_profile_picture(
     db: AsyncSession = Depends(get_db)
 ):
     """Upload profile picture"""
+    print("[UPLOAD ENDPOINT] Received profile picture upload request.")
     # Validate file type
     if not profile_picture.content_type.startswith('image/'):
         raise HTTPException(
@@ -65,14 +67,41 @@ async def upload_profile_picture(
         content = await profile_picture.read()
         buffer.write(content)
     
+    # Analyze the uploaded image for hazards
+    try:
+        print(f"🔍 Starting hazard analysis for uploaded image: {file_path}")
+        hazard_analysis = analyze_ocean_hazard(file_path)
+        print(f"📊 HAZARD ANALYSIS RESULT:")
+        print(f"{'='*50}")
+        print(hazard_analysis)
+        print(f"{'='*50}")
+        # Parse hazard type and description from the analysis result
+        hazard_type = None
+        hazard_description = None
+        for line in hazard_analysis.splitlines():
+            if line.startswith("**Hazard:**"):
+                hazard_type = line.replace("**Hazard:**", "").strip()
+            if line.startswith("**Description:**"):
+                hazard_description = line.replace("**Description:**", "").strip()
+        # Fallbacks if not found
+        if not hazard_type:
+            hazard_type = "Unknown"
+        if not hazard_description:
+            hazard_description = "No description available."
+    except Exception as e:
+        print(f"❌ Error during hazard analysis: {e}")
+        hazard_type = "Unknown"
+        hazard_description = "Error during hazard analysis."
     # Update user profile picture URL - use full URL for frontend
     profile_picture_url = f"/uploads/profile_pictures/{filename}"
     current_user.profile_picture = profile_picture_url
-    
     await db.commit()
     await db.refresh(current_user)
-    
-    return {"profile_picture": profile_picture_url}
+    return {
+        "profile_picture": profile_picture_url,
+        "hazard_type": hazard_type,
+        "hazard_description": hazard_description
+    }
 
 @router.get("/stats")
 async def get_user_stats(

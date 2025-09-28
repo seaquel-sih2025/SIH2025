@@ -211,25 +211,7 @@ const Profile = () => {
           <div className="flex items-start space-x-6">
             <div className="relative">
               <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-                {profile?.profile_picture ? (
-                  <img 
-                    src={getProfilePictureUrl(profile.profile_picture)} 
-                    alt="Profile" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <div 
-                  className="w-full h-full flex items-center justify-center"
-                  style={{ display: profile?.profile_picture ? 'none' : 'flex' }}
-                >
-                  <span className="text-2xl font-bold text-blue-600">
-                    {getInitials(profile?.full_name)}
-                  </span>
-                </div>
+                {/* Profile picture display removed as per request */}
               </div>
               <label className="absolute bottom-0 right-0 w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-700 transition-colors">
                 <Camera className="w-4 h-4 text-white" />
