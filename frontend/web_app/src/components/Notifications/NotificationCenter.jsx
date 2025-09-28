@@ -33,7 +33,9 @@ const NotificationCenter = () => {
       const token = localStorage.getItem('authToken');
       if (!token) return;
 
-      const ws = new WebSocket(`ws://localhost:8000/ws/notifications?token=${token}`);
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+      const ws = new WebSocket(`${wsUrl}/ws/notifications?token=${token}`);
       
       ws.onmessage = (event) => {
         const notification = JSON.parse(event.data);

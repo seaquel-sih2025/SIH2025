@@ -24,7 +24,8 @@ const ConnectionTest = ({ onClose }) => {
 
     // Test 1: Backend Connection
     try {
-      const response = await fetch('http://localhost:8000/', { 
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/`, { 
         method: 'GET',
         mode: 'cors'
       });
@@ -43,7 +44,7 @@ const ConnectionTest = ({ onClose }) => {
 
     // Test 2: Database Health
     try {
-      const response = await fetch('http://localhost:8000/health', {
+      const response = await fetch(`${apiUrl}/health`, {
         method: 'GET',
         mode: 'cors'
       });
@@ -61,7 +62,7 @@ const ConnectionTest = ({ onClose }) => {
     // Test 3: API Routes
     try {
       // Test a simple GET endpoint instead of POST-only register endpoint
-      const response = await fetch('http://localhost:8000/', {
+      const response = await fetch(`${apiUrl}/`, {
         method: 'GET',
         mode: 'cors'
       });
