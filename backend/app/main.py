@@ -53,8 +53,13 @@ async def startup_event():
     # Initialize SQLite database for offline sync
     await init_sqlite_db()
     
-    # Connect to RabbitMQ
-    await rabbitmq_service.connect()
+    # Try to connect to RabbitMQ (optional in production)
+    try:
+        await rabbitmq_service.connect()
+        print("Successfully connected to RabbitMQ.")
+    except Exception as e:
+        print(f"RabbitMQ connection failed (running without message queue): {e}")
+        # App can continue without RabbitMQ for basic functionality
     
     # Start connectivity monitoring
     await connectivity_service.start_monitoring()
@@ -62,7 +67,6 @@ async def startup_event():
     # Start sync service
     await sync_service.start_sync_service()
     
-    print("Successfully connected to RabbitMQ.")
     print("Pravaah API startup complete.")
 
 @app.on_event("shutdown")
