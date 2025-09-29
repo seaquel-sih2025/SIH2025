@@ -20,12 +20,6 @@ services:
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 30
 
-  - type: pserv
-    name: pravaah-db
-    plan: free
-    databaseName: pravaah
-    user: pravaah_user
-
 databases:
   - name: pravaah-db
     plan: free
