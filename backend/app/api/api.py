@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import reports, auth, verifications, feed, users, notifications, safety_circles, sync, authority, analyst, official
+from app.api.endpoints import reports, auth, verifications, feed, users, notifications, safety_circles, sync, authority, analyst, official, image_upload
 
 api_router = APIRouter()
 
@@ -17,3 +17,4 @@ api_router.include_router(official.router, prefix="/official", tags=["Official"]
 # Keep authority endpoints for backward compatibility during migration
 api_router.include_router(authority.router, prefix="/authority", tags=["Authority"])
 api_router.include_router(analyst.router, prefix="/analyst", tags=["Analyst"])
+api_router.include_router(image_upload.router, prefix="/image", tags=["Image Upload"])

@@ -645,8 +645,8 @@ const AuthorityDashboard = () => {
         <div className="border-b border-gray-200 mb-8">
           <nav className="-mb-px flex space-x-8">
             {[
-              { id: 'triage-queue', name: 'Triage & Verification', icon: Shield },
-              { id: 'golden-hour-map', name: 'Golden Hour Map', icon: Map },
+                { id: 'triage-queue', name: 'Triage & Verification', icon: Shield },
+                { id: 'golden-hour-map', name: 'Interactive Map', icon: Map },
               { id: 'incident-chat', name: 'Incident Communication', icon: MessageSquare },
               { id: 'urgency-filter', name: 'Urgency Dashboard', icon: Gauge },
               { id: 'ews-comparison', name: 'EWS Comparison', icon: Radar }
@@ -816,7 +816,7 @@ const AuthorityDashboard = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900 flex items-center">
                     <Map className="w-5 h-5 mr-2" />
-                    Golden Hour Map - Critical Infrastructure
+                    Interactive Map - Critical Infrastructure
                   </h2>
                   <div className="flex items-center space-x-2">
                     {Object.entries(mapOverlays).map(([key, value]) => (

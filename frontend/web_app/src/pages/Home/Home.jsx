@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross, Loader2, RotateCcw } from 'lucide-react';
 import MapView from '../../components/MapView.jsx';
 import Feed from '../../components/Feed';
@@ -376,7 +376,7 @@ const Home = () => {
         </div>
 
         {/* Content Cards */}
-        <div className="space-y-8">
+        <div className="space-y-20">
           {/* Current Location Card */}
           <div className="bg-slate-50 rounded-xl shadow-lg p-8">
             <div className="mb-6">
@@ -500,7 +500,7 @@ const Home = () => {
                   safetyCircles={safetyCircles}
                 />
                 {loadingHotspots ? (
-                  <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-xs px-2 py-1 rounded">Loading hotspots…</div>
+                  <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-xs px-2 py-1 rounded">Loading hotspotsâ€¦</div>
                 ) : null}
               </div>
             </div>
@@ -536,7 +536,7 @@ const Home = () => {
 
           {/* Recent Reports Card */
           }
-          <div className="bg-slate-50 rounded-xl shadow-lg p-8">
+          <div className="bg-slate-50 rounded-xl shadow-lg p-8 mt-16">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Users className="w-6 h-6 text-blue-800 mr-3" />
@@ -574,7 +574,7 @@ const Home = () => {
                         </div>
                       )}
                     {r.user_description ? (
-                      <p className="text-gray-700 text-base mb-6 leading-relaxed line-clamp-4">{r.user_description}</p>
+                      <p className="text-gray-700 text-base mb-6 leading-relaxed truncate whitespace-nowrap">{r.user_description}</p>
                     ) : null}
                     <div className="h-48 rounded-xl overflow-hidden mb-6 flex-grow bg-gray-100">
                       {r.thumbnail_url ? (
@@ -621,10 +621,12 @@ const Home = () => {
           </div>
 
           {/* AI Intelligence Feed */}
-          <Feed limit={12} />
+          <div className="mt-16">
+            <Feed limit={12} />
+          </div>
 
           {/* Risk Assessment Card */}
-          <div className="bg-slate-50 rounded-xl shadow-lg p-8">
+          <div className="bg-slate-50 rounded-xl shadow-lg p-8 mt-16">
             <div className="flex items-center mb-6">
               <Shield className="w-6 h-6 text-blue-800 mr-3" />
               <h2 className="text-xl font-semibold text-blue-800">Risk Assessment</h2>
@@ -682,7 +684,7 @@ const Home = () => {
           </div>
 
           {/* Safety Recommendations Card */}
-          <div className="bg-slate-50 rounded-xl shadow-lg p-8">
+          <div className="bg-slate-50 rounded-xl shadow-lg p-8 mt-20">
             <div className="flex items-center mb-6">
               <Shield className="w-6 h-6 text-blue-800 mr-3" />
               <h2 className="text-xl font-semibold text-blue-800">Safety Recommendations</h2>
@@ -704,7 +706,7 @@ const Home = () => {
           </div>
 
           {/* Safe Places Card (Indian locations; distance from Bengaluru) */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 mt-16">
             <div className="flex items-center mb-6">
               <Shield className="w-5 h-5 text-red-500 mr-3" />
               <h2 className="text-lg font-semibold text-gray-800">Safe Places</h2>
@@ -767,3 +769,4 @@ const Home = () => {
 };
 
 export default Home;
+

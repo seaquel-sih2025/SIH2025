@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { submitReport } from '../../services/reportService';
+import { uploadProfilePicture } from '../../services/userService';
 import { 
   MapPin, 
   Camera, 
@@ -22,11 +23,17 @@ import {
 const Report = () => {
   const [selectedIncidentType, setSelectedIncidentType] = useState('');
   const [description, setDescription] = useState('');
+  // For autofill from hazard analysis
+  const [hazardAutofill, setHazardAutofill] = useState({ type: '', description: '' });
   const [selectedImages, setSelectedImages] = useState([]);
   const [selectedVideos, setSelectedVideos] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  
+  // Upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]);
   
   // Location state
   const [myLocation, setMyLocation] = useState(null);
@@ -35,6 +42,7 @@ const Report = () => {
   
   const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
+  const uploadInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
   const watchIdRef = useRef(null);
@@ -180,6 +188,43 @@ const Report = () => {
 
   const removeVideo = (index) => {
     setSelectedVideos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMediaUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      for (const file of files) {
+        const result = await uploadProfilePicture(file);
+        setUploadedImages(prev => [...prev, { 
+          name: file.name, 
+          url: result.profile_picture 
+        }]);
+        // Also add to selectedImages so these files are included in the report submission
+        setSelectedImages(prev => [...prev, file]);
+        // Autofill incident type and description if hazard analysis is present
+        if (result.hazard_type && result.hazard_description) {
+          setHazardAutofill({
+            type: result.hazard_type,
+            description: result.hazard_description
+          });
+          // Set the form fields
+          setSelectedIncidentType(result.hazard_type.toLowerCase().replace(/ /g, '_'));
+          setDescription(result.hazard_description);
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      alert('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeUploadedImage = (index) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const startRecording = async () => {
@@ -485,6 +530,58 @@ const Report = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Upload Button */}
+            <div className="mt-6">
+              <input
+                type="file"
+                ref={uploadInputRef}
+                onChange={handleMediaUpload}
+                accept="image/*"
+                multiple
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => uploadInputRef.current?.click()}
+                disabled={isUploading}
+                className="w-full p-4 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-xl transition-all duration-200 flex items-center justify-center space-x-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    <span>Upload Selected Media</span>
+                  </>
+                )}
+              </button>
+
+              {/* Uploaded Images Preview */}
+              {uploadedImages.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Uploaded Files:</h4>
+                  {uploadedImages.map((image, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                      <div className="flex items-center">
+                        <FileImage className="w-4 h-4 text-green-600 mr-2" />
+                        <span className="text-sm font-medium text-green-700 truncate">{image.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeUploadedImage(index)}
+                        className="text-red-500 hover:text-red-700 text-sm font-medium"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
