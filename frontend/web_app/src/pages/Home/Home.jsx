@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, Users, Clock, Star, Anchor, Cross, Loader2, RotateCcw } from 'lucide-react';
 import MapView from '../../components/MapView.jsx';
 import Feed from '../../components/Feed';
@@ -500,7 +500,7 @@ const Home = () => {
                   safetyCircles={safetyCircles}
                 />
                 {loadingHotspots ? (
-                  <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-xs px-2 py-1 rounded">Loading hotspots…</div>
+                  <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-xs px-2 py-1 rounded">Loading hotspotsâ€¦</div>
                 ) : null}
               </div>
             </div>
@@ -574,7 +574,7 @@ const Home = () => {
                         </div>
                       )}
                     {r.user_description ? (
-                      <p className="text-gray-700 text-base mb-6 leading-relaxed line-clamp-4">{r.user_description}</p>
+                      <p className="text-gray-700 text-base mb-6 leading-relaxed truncate whitespace-nowrap">{r.user_description}</p>
                     ) : null}
                     <div className="h-48 rounded-xl overflow-hidden mb-6 flex-grow bg-gray-100">
                       {r.thumbnail_url ? (
@@ -769,3 +769,4 @@ const Home = () => {
 };
 
 export default Home;
+

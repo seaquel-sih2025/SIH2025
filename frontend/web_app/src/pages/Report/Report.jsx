@@ -202,6 +202,8 @@ const Report = () => {
           name: file.name, 
           url: result.profile_picture 
         }]);
+        // Also add to selectedImages so these files are included in the report submission
+        setSelectedImages(prev => [...prev, file]);
         // Autofill incident type and description if hazard analysis is present
         if (result.hazard_type && result.hazard_description) {
           setHazardAutofill({
