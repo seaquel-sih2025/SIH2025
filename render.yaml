@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: pravaah-backend
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt && python create_tables.py"
+    startCommand: "gunicorn app.main:app -c gunicorn.conf.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pravaah-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+  - type: worker
+    name: general-worker
+    env: python
+    plan: free
+    rootDir: backend
+    startCommand: "python ./worker.py"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pravaah-db
+          property: connectionString
+  - type: worker
+    name: weather-worker
+    env: python
+    plan: free
+    rootDir: backend
+    startCommand: "python ./weather_worker.py"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pravaah-db
+          property: connectionString
+  - type: worker
+    name: peer-notification-worker
+    env: python
+    plan: free
+    rootDir: backend
+    startCommand: "python ./peer_notif_worker.py"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pravaah-db
+          property: connectionString
+  - type: worker
+    name: ai-worker
+    env: python
+    plan: free
+    rootDir: ai
+    startCommand: "pip install -r requirements.txt && python worker.py"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pravaah-db
+          property: connectionString
+databases:
+  - name: pravaah-db
+    plan: free
