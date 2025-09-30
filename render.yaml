@@ -64,5 +64,5 @@ services:
           name: pravaah_db
           property: connectionString
 databases:
-  - name: pravaa_db
+  - name: pravaah_db
     plan: free
