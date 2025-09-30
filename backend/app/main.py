@@ -29,14 +29,18 @@ if environment == "development":
     ]
 else:
     # Production - always explicit origins
-    allowed_origins = [
-        "https://pravaah-frontend.onrender.com",
-    ]
+    allowed_origins = []
     
-    # Add additional production URLs from environment variables
+    # Add frontend URL from environment variable (primary)
     frontend_url = os.getenv("FRONTEND_URL")
     if frontend_url:
+        # Clean the URL (remove trailing slash)
+        frontend_url = frontend_url.rstrip('/')
         allowed_origins.append(frontend_url)
+    
+    # Fallback to default Render URL if FRONTEND_URL not set
+    if not allowed_origins:
+        allowed_origins.append("https://pravaah-frontend.onrender.com")
     
     # Add Vercel deployment URLs if present
     vercel_url = os.getenv("VERCEL_URL")
@@ -53,8 +57,24 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    print(f"Starting Pravaah API. Environment: {environment}")
+    print("=" * 60)
+    print(f"🚀 Starting Pravaah API")
+    print(f"Environment: {environment}")
     print(f"CORS allowed origins: {allowed_origins}")
+    print("=" * 60)
+    
+    # CRITICAL: Create database tables if they don't exist
+    try:
+        from app.db.session import engine
+        from app.db.base import Base
+        print("Creating/verifying database tables...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✓ Database tables created/verified successfully.")
+    except Exception as e:
+        print(f"✗ CRITICAL: Database table creation failed: {e}")
+        print("Application may not function correctly without database tables!")
+        # Don't raise - let app start so you can debug via health endpoint
     
     # Initialize SQLite database for offline sync
     try:
@@ -92,9 +112,9 @@ async def startup_event():
     except Exception as e:
         print(f"⚠ Sync service failed: {e}")
     
-    print("=" * 50)
-    print("🚀 Pravaah API startup complete!")
-    print("=" * 50)
+    print("=" * 60)
+    print("✅ Pravaah API startup complete!")
+    print("=" * 60)
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -137,7 +157,8 @@ def read_root():
         "status": "active", 
         "message": "Welcome to the Pravaah API!",
         "version": "0.1.0",
-        "environment": environment
+        "environment": environment,
+        "cors_origins": allowed_origins
     }
 
 @app.get("/health", tags=["Health"])
@@ -155,8 +176,20 @@ async def health_check():
         from app.db.session import engine
         from sqlalchemy import text
         async with engine.begin() as conn:
-            await conn.execute(text("SELECT 1"))
+            result = await conn.execute(text("SELECT 1"))
         health_status["database"] = "connected"
+        
+        # Check if tables exist
+        try:
+            async with engine.begin() as conn:
+                result = await conn.execute(text("SELECT COUNT(*) FROM users"))
+                user_count = result.scalar()
+                health_status["users_table"] = "exists"
+                health_status["user_count"] = user_count
+        except Exception as e:
+            health_status["users_table"] = "missing"
+            health_status["tables_error"] = str(e)
+            
     except Exception as e:
         health_status["status"] = "degraded"
         health_status["database"] = "disconnected"
@@ -175,6 +208,9 @@ async def health_check():
     if health_status.get("database") == "disconnected":
         health_status["status"] = "unhealthy"
         health_status["message"] = "Database connection failed"
+    elif health_status.get("users_table") == "missing":
+        health_status["status"] = "unhealthy"
+        health_status["message"] = "Database tables missing - run migrations"
     else:
         health_status["message"] = "All systems operational"
     
