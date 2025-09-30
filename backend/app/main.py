@@ -8,7 +8,6 @@ from app.services.rabbitmq_service import rabbitmq_service
 from app.services.connectivity_service import connectivity_service
 from app.services.sync_service import sync_service
 from app.db.sqlite_setup import init_sqlite_db
-import os
 
 app = FastAPI(
     title="Pravaah API",
@@ -16,29 +15,32 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Configure CORS for production and development
-allowed_origins = [
-    "http://localhost:5173",  # Local Vite dev server
-    "http://localhost:3000",  # Alternative local dev server
-    "http://127.0.0.1:5173",  # Local Vite dev server (alternative)
-]
+# Get environment - default to production for safety
+environment = os.getenv("ENVIRONMENT", "production")
 
-# Add production frontend URLs from environment variables
-frontend_url = os.getenv("FRONTEND_URL")
-if frontend_url:
-    allowed_origins.append(frontend_url)
-
-# Add Vercel deployment URLs (common pattern)
-vercel_url = os.getenv("VERCEL_URL")
-if vercel_url:
-    allowed_origins.extend([
-        f"https://{vercel_url}",
-        f"https://*.{vercel_url}",  # For preview deployments
-    ])
-
-# In development, allow all origins
-if os.getenv("ENVIRONMENT", "development") == "development":
-    allowed_origins = ["*"]
+# Configure CORS based on environment
+if environment == "development":
+    # Local development - explicit origins only (never "*" with credentials)
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+    ]
+else:
+    # Production - always explicit origins
+    allowed_origins = [
+        "https://pravaah-frontend.onrender.com",
+    ]
+    
+    # Add additional production URLs from environment variables
+    frontend_url = os.getenv("FRONTEND_URL")
+    if frontend_url:
+        allowed_origins.append(frontend_url)
+    
+    # Add Vercel deployment URLs if present
+    vercel_url = os.getenv("VERCEL_URL")
+    if vercel_url:
+        allowed_origins.append(f"https://{vercel_url}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,7 +69,8 @@ async def startup_event():
     # Start sync service
     await sync_service.start_sync_service()
     
-    print("Pravaah API startup complete.")
+    print(f"Pravaah API startup complete. Environment: {environment}")
+    print(f"CORS allowed origins: {allowed_origins}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -108,6 +111,8 @@ async def health_check():
             "status": "healthy",
             "database": "connected",
             "api": "running",
+            "environment": environment,
+            "cors_origins": allowed_origins,
             "message": "All systems operational"
         }
     except Exception as e:
