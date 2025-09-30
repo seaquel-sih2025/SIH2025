@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.api import api_router
 from app.core.config import settings
 import os
+import asyncio
 from app.services.rabbitmq_service import rabbitmq_service
 from app.services.connectivity_service import connectivity_service
 from app.services.sync_service import sync_service
@@ -52,36 +53,73 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    # Initialize SQLite database for offline sync
-    await init_sqlite_db()
-    
-    # Try to connect to RabbitMQ (optional in production)
-    try:
-        await rabbitmq_service.connect()
-        print("Successfully connected to RabbitMQ.")
-    except Exception as e:
-        print(f"RabbitMQ connection failed (running without message queue): {e}")
-        # App can continue without RabbitMQ for basic functionality
-    
-    # Start connectivity monitoring
-    await connectivity_service.start_monitoring()
-    
-    # Start sync service
-    await sync_service.start_sync_service()
-    
-    print(f"Pravaah API startup complete. Environment: {environment}")
+    print(f"Starting Pravaah API. Environment: {environment}")
     print(f"CORS allowed origins: {allowed_origins}")
+    
+    # Initialize SQLite database for offline sync
+    try:
+        await asyncio.wait_for(init_sqlite_db(), timeout=10.0)
+        print("✓ SQLite database initialized successfully.")
+    except asyncio.TimeoutError:
+        print("✗ SQLite initialization timed out")
+    except Exception as e:
+        print(f"✗ SQLite initialization failed: {e}")
+    
+    # Try to connect to RabbitMQ with timeout (optional in production)
+    try:
+        await asyncio.wait_for(rabbitmq_service.connect(), timeout=5.0)
+        print("✓ Successfully connected to RabbitMQ.")
+    except asyncio.TimeoutError:
+        print("⚠ RabbitMQ connection timed out (running without message queue)")
+    except Exception as e:
+        print(f"⚠ RabbitMQ connection failed (running without message queue): {e}")
+    
+    # Start connectivity monitoring (non-blocking)
+    try:
+        await asyncio.wait_for(connectivity_service.start_monitoring(), timeout=5.0)
+        print("✓ Connectivity monitoring started.")
+    except asyncio.TimeoutError:
+        print("⚠ Connectivity monitoring timed out")
+    except Exception as e:
+        print(f"⚠ Connectivity monitoring failed: {e}")
+    
+    # Start sync service (non-blocking)
+    try:
+        await asyncio.wait_for(sync_service.start_sync_service(), timeout=5.0)
+        print("✓ Sync service started.")
+    except asyncio.TimeoutError:
+        print("⚠ Sync service timed out")
+    except Exception as e:
+        print(f"⚠ Sync service failed: {e}")
+    
+    print("=" * 50)
+    print("🚀 Pravaah API startup complete!")
+    print("=" * 50)
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    print("Shutting down Pravaah API...")
+    
     # Stop sync services
-    await sync_service.stop_sync_service()
-    await connectivity_service.stop_monitoring()
+    try:
+        await sync_service.stop_sync_service()
+        print("✓ Sync service stopped.")
+    except Exception as e:
+        print(f"✗ Error stopping sync service: {e}")
+    
+    try:
+        await connectivity_service.stop_monitoring()
+        print("✓ Connectivity monitoring stopped.")
+    except Exception as e:
+        print(f"✗ Error stopping connectivity monitoring: {e}")
     
     # Close RabbitMQ connection
-    await rabbitmq_service.close()
+    try:
+        await rabbitmq_service.close()
+        print("✓ RabbitMQ connection closed.")
+    except Exception as e:
+        print(f"✗ Error closing RabbitMQ: {e}")
     
-    print("RabbitMQ connection closed.")
     print("Pravaah API shutdown complete.")
 
 app.include_router(api_router, prefix="/api")
@@ -95,30 +133,49 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/", tags=["Root"])
 def read_root():
-    return {"status": "active", "message": "Welcome to the Pravaah API!"}
+    return {
+        "status": "active", 
+        "message": "Welcome to the Pravaah API!",
+        "version": "0.1.0",
+        "environment": environment
+    }
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint to verify API and database connectivity"""
+    health_status = {
+        "status": "healthy",
+        "api": "running",
+        "environment": environment,
+        "cors_origins": allowed_origins,
+    }
+    
+    # Test database connection
     try:
         from app.db.session import engine
         from sqlalchemy import text
-        # Test database connection
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "api": "running",
-            "environment": environment,
-            "cors_origins": allowed_origins,
-            "message": "All systems operational"
-        }
+        health_status["database"] = "connected"
     except Exception as e:
-        return {
-            "status": "unhealthy", 
-            "database": "disconnected",
-            "api": "running",
-            "error": str(e)
-        }
+        health_status["status"] = "degraded"
+        health_status["database"] = "disconnected"
+        health_status["database_error"] = str(e)
+    
+    # Check RabbitMQ status
+    try:
+        if rabbitmq_service.is_connected():
+            health_status["rabbitmq"] = "connected"
+        else:
+            health_status["rabbitmq"] = "disconnected"
+    except:
+        health_status["rabbitmq"] = "unavailable"
+    
+    # Overall status
+    if health_status.get("database") == "disconnected":
+        health_status["status"] = "unhealthy"
+        health_status["message"] = "Database connection failed"
+    else:
+        health_status["message"] = "All systems operational"
+    
+    return health_status
