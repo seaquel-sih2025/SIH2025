@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    startCommand: "python create_tables.py && gunicorn app.main:app -c gunicorn.conf.py"
+    startCommand: "python complete_datetime_fix.py && python create_tables.py && gunicorn app.main:app -c gunicorn.conf.py"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.5

@@ -204,7 +204,7 @@ async def get_user_rewards(
 
 
 # Add location endpoints for users
-from datetime import datetime
+from datetime import datetime, timezone
 
 @router.put("/location", summary="Update user location")
 async def update_user_location(
@@ -226,7 +226,7 @@ async def update_user_location(
     # Update user location
     current_user.latitude = latitude
     current_user.longitude = longitude
-    current_user.location_updated_at = datetime.utcnow()
+    current_user.location_updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     

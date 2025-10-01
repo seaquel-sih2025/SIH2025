@@ -5,7 +5,7 @@ import asyncio
 import httpx
 import logging
 from typing import Optional, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.offline_models import ConnectivityStatus
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ConnectivityService:
     def __init__(self):
         self._is_online = False
-        self._last_check = datetime.utcnow()
+        self._last_check = datetime.now(timezone.utc)
         self._connection_type = None
         self._check_interval = 30  # seconds
         self._check_task: Optional[asyncio.Task] = None
@@ -62,7 +62,7 @@ class ConnectivityService:
         """Update and return current connectivity status"""
         previous_status = self._is_online
         self._is_online = await self.check_connectivity()
-        self._last_check = datetime.utcnow()
+        self._last_check = datetime.now(timezone.utc)
         
         # If status changed, notify callbacks
         if previous_status != self._is_online:

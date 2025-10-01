@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -22,8 +22,9 @@ async def create_safety_circle(
     The circle will automatically expire after 48 hours.
     """
     try:
-        # Calculate expiration time (48 hours from now)
-        expires_at = datetime.utcnow() + timedelta(hours=48)
+        # Calculate expiration time (48 hours from now) - use timezone-aware datetime
+        current_time = datetime.now(timezone.utc)
+        expires_at = current_time + timedelta(hours=48)
         
         # Create new safety circle
         new_circle = SafetyCircle(
@@ -67,7 +68,7 @@ async def get_active_safety_circles(
     Get all active safety circles (not expired).
     """
     try:
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         
         result = await db.execute(
             select(SafetyCircle)
@@ -106,7 +107,7 @@ async def cleanup_expired_safety_circles(
     This should be called by a background task periodically.
     """
     try:
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         
         result = await db.execute(
             select(SafetyCircle)

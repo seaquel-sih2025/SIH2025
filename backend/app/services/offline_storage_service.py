@@ -5,7 +5,7 @@ import aiosqlite
 import json
 import logging
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import List, Optional
 from app.db.sqlite_setup import get_sqlite_connection, SQLITE_DB_PATH
@@ -45,7 +45,7 @@ class OfflineStorageService:
                 report_data.longitude,
                 report_data.description,
                 report_data.city,
-                datetime.utcnow(),
+                datetime.now(timezone.utc),
                 SyncStatus.PENDING.value
             ))
             
@@ -88,7 +88,7 @@ class OfflineStorageService:
                         str(offline_path),
                         media_type,
                         json.dumps(metadata) if metadata else None,
-                        datetime.utcnow(),
+                        datetime.now(timezone.utc),
                         SyncStatus.PENDING.value
                     ))
                     
@@ -206,7 +206,7 @@ class OfflineStorageService:
                 WHERE id = ?
             """, (
                 status.value,
-                datetime.utcnow(),
+                datetime.now(timezone.utc),
                 postgres_id,
                 error_message,
                 report_id
@@ -258,9 +258,7 @@ class OfflineStorageService:
     
     async def cleanup_synced_data(self, older_than_days: int = 7):
         """Clean up successfully synced data older than specified days"""
-        cutoff_date = datetime.utcnow().replace(
-            day=datetime.utcnow().day - older_than_days
-        )
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=older_than_days)
         
         async with get_sqlite_connection() as db:
             # Get media files to delete

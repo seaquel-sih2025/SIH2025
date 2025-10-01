@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import select
 from app.db.models import SafetyCircle
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -21,7 +21,7 @@ async def cleanup_expired_safety_circles():
     async with AsyncSessionLocal() as db:
         try:
             # By default, circles expire after 24 hours.
-            expiration_cutoff = datetime.now() - timedelta(days=1)
+            expiration_cutoff = datetime.now(timezone.utc) - timedelta(days=1)
             
             print(f"Starting cleanup for safety circles created before {expiration_cutoff.isoformat()}")
 

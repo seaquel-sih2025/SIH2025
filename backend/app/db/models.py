@@ -5,11 +5,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID, ENUM, JSONB
 from geoalchemy2 import Geography
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 import uuid
 
-# Use a single Base for all models
-Base = declarative_base()
+# Import the declarative base
+from app.db.base import Base
 
 # --- Enums for controlled vocabularies ---
 class HazardType(str, enum.Enum):

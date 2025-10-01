@@ -57,7 +57,7 @@ async def get_notification_count(
     Returns the count of recent verified reports that the user hasn't responded to yet.
     """
     # Get count of recent verified reports (last 7 days) as notifications
-    recent_cutoff = datetime.utcnow() - timedelta(days=7)
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     
     # First, get all report IDs that the current user has already responded to
     user_responses = await db.execute(
@@ -87,7 +87,7 @@ async def get_notification_count(
     return {
         "unread_count": recent_reports_count,  # Now shows only unresponded notifications
         "total_count": total_count,
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(timezone.utc).isoformat()
     }
 
 @router.post("/peer", response_model=PeerNotificationResponse, status_code=201)
@@ -134,7 +134,7 @@ async def receive_peer_notification(
                 "message": notification_data.message,
                 "hazard_type": notification_data.hazard_type,
                 "distance_km": "< 50",  # You'd calculate actual distance here
-                "sent_at": datetime.utcnow().isoformat()
+                "sent_at": datetime.now(timezone.utc).isoformat()
             }
             notifications_sent.append(notification_record)
         
@@ -188,7 +188,7 @@ async def get_recent_notifications(
 ):
     """Get recent notifications based on recent verified reports."""
     # Get recent verified reports to show as notifications
-    recent_cutoff = datetime.utcnow() - timedelta(days=7)
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     
     # First, get all report IDs that the current user has already responded to
     user_responses = await db.execute(

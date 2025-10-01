@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.api import api_router
@@ -21,13 +21,33 @@ environment = os.getenv("ENVIRONMENT", "production")
 
 # Configure CORS based on environment
 if environment == "development":
-    # Local development - explicit origins only (never "*" with credentials)
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-    ]
+    # Local development - allow all origins temporarily for debugging
+    allowed_origins = ["*"]
 else:
+    # Production - always explicit origins
+    allowed_origins = []
+    
+    # Add frontend URL from environment variable (primary)
+    frontend_url = os.getenv("FRONTEND_URL")
+    if frontend_url:
+        # Clean the URL (remove trailing slash)
+        frontend_url = frontend_url.rstrip('/')
+        allowed_origins.append(frontend_url)
+    
+    # Fallback to default Render URL if FRONTEND_URL not set
+    if not allowed_origins:
+        allowed_origins.append("https://pravaah-frontend.onrender.com")
+    
+    # Add Vercel deployment URLs if present
+    vercel_url = os.getenv("VERCEL_URL")
+    if vercel_url:
+        allowed_origins.append(f"https://{vercel_url}")
+    
+    # Add any additional production origins
+    additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS")
+    if additional_origins:
+        origins_list = [origin.strip() for origin in additional_origins.split(",")]
+        allowed_origins.extend(origins_list)
     # Production - always explicit origins
     allowed_origins = []
     
@@ -50,10 +70,23 @@ else:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_credentials=False if "*" in allowed_origins else True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
+
+# Add debugging middleware for CORS issues (development only)
+if environment == "development":
+    @app.middleware("http")
+    async def cors_debug_middleware(request: Request, call_next):
+        origin = request.headers.get("origin")
+        if origin:
+            print(f"🔍 Request from origin: {origin}")
+            if origin not in allowed_origins and "*" not in allowed_origins:
+                print(f"⚠️  Origin {origin} not in allowed origins: {allowed_origins}")
+        
+        response = await call_next(request)
+        return response
 
 @app.on_event("startup")
 async def startup_event():
@@ -112,17 +145,8 @@ async def startup_event():
     except Exception as e:
         print(f"⚠ Sync service failed: {e}")
     
-    # Clean up any corrupted safety circle records (non-blocking)
-    try:
-        from cleanup_safety_circles import cleanup_expired_safety_circles
-        await asyncio.wait_for(cleanup_expired_safety_circles(), timeout=10.0)
-        print("✓ Safety circle cleanup completed.")
-    except asyncio.TimeoutError:
-        print("⚠ Safety circle cleanup timed out")
-    except Exception as e:
-        print(f"⚠ Safety circle cleanup failed (may have corrupted data): {e}")
-        if "day is out of range for month" in str(e):
-            print("⚠ Detected corrupted date records. Run 'python fix_corrupted_dates.py' to fix.")
+    # Note: Safety circle cleanup moved to separate endpoint to avoid startup errors
+    # You can manually trigger cleanup via DELETE /api/safety-circles/expired
     
     print("=" * 60)
     print("✅ Pravaah API startup complete!")
