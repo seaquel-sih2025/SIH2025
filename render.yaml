@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    startCommand: "python create_tables.py && gunicorn app.main:app -c gunicorn.conf.py"
+    startCommand: "python create_tables.py create || true; gunicorn app.main:app -c gunicorn.conf.py"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.5
@@ -97,7 +97,7 @@ services:
     env: python
     plan: free
     rootDir: ai
-    startCommand: "pip install -r requirements.txt && python worker.py"
+    startCommand: "pip install -r requirements.txt; python worker.py"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
