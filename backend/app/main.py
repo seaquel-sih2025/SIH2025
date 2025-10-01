@@ -96,13 +96,80 @@ async def startup_event():
     print(f"CORS allowed origins: {allowed_origins}")
     print("=" * 60)
     
-    # CRITICAL: Create database tables if they don't exist
+    # CRITICAL: Create database tables with proper ENUM handling
     try:
         from app.db.session import engine
         from app.db.base import Base
+        from sqlalchemy import text
+        
         print("Creating/verifying database tables...")
         async with engine.begin() as conn:
+            # First, enable PostGIS extension if needed
+            try:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+                print("✓ PostGIS extension enabled")
+            except Exception as ext_error:
+                print(f"⚠️  PostGIS extension warning: {ext_error}")
+            
+            # Pre-create ENUM types to avoid conflicts
+            enum_types = [
+                ("user_role", ["citizen", "verified_reporter", "emergency_responder", "admin"]),
+                ("hazard_type", ["flood", "fire", "earthquake", "cyclone", "landslide", "accident", "medical_emergency", "security_threat", "infrastructure_failure", "other"]),
+                ("report_status", ["under_verification", "verified", "rejected", "resolved"]),
+                ("media_type", ["image", "video", "audio"]),
+                ("verification_source", ["ai_analysis", "expert_review", "crowd_verification", "official_confirmation"])
+            ]
+            
+            for enum_name, enum_values in enum_types:
+                try:
+                    # Check if the ENUM type already exists
+                    result = await conn.execute(text(f"""
+                        SELECT 1 FROM pg_type WHERE typname = '{enum_name}';
+                    """))
+                    
+                    if result.fetchone() is None:
+                        # ENUM doesn't exist, create it
+                        values_str = ", ".join([f"'{value}'" for value in enum_values])
+                        await conn.execute(text(f"""
+                            CREATE TYPE {enum_name} AS ENUM ({values_str});
+                        """))
+                        print(f"✅ Created ENUM type: {enum_name}")
+                    else:
+                        print(f"✓ ENUM type {enum_name} already exists")
+                        
+                except Exception as e:
+                    if "already exists" in str(e) or "duplicate key" in str(e):
+                        print(f"✓ ENUM type {enum_name} was created by another worker")
+                    else:
+                        print(f"⚠️  Error with ENUM {enum_name}: {e}")
+            
+            # Now create tables
             await conn.run_sync(Base.metadata.create_all)
+            
+            # Verify critical table structure
+            result = await conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'users' 
+                ORDER BY ordinal_position;
+            """))
+            user_columns = [row[0] for row in result.fetchall()]
+            
+            # Check for critical columns
+            required_columns = ['id', 'email', 'role', 'hashed_password', 'full_name']
+            missing_columns = [col for col in required_columns if col not in user_columns]
+            
+            if missing_columns:
+                print(f"❌ CRITICAL: Missing columns in users table: {missing_columns}")
+                print(f"📋 Found columns: {user_columns}")
+                # Force drop and recreate if schema is wrong
+                print("🔧 Forcing table recreation...")
+                await conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
+                await conn.run_sync(Base.metadata.create_all)
+                print("✅ Tables recreated")
+            else:
+                print(f"✅ Users table verified with {len(user_columns)} columns")
+                
         print("✓ Database tables created/verified successfully.")
     except Exception as e:
         print(f"✗ CRITICAL: Database table creation failed: {e}")
@@ -215,16 +282,43 @@ async def health_check():
             result = await conn.execute(text("SELECT 1"))
         health_status["database"] = "connected"
         
-        # Check if tables exist
+        # Check if tables exist and have proper schema
         try:
             async with engine.begin() as conn:
-                result = await conn.execute(text("SELECT COUNT(*) FROM users"))
-                user_count = result.scalar()
-                health_status["users_table"] = "exists"
-                health_status["user_count"] = user_count
+                # Check users table structure
+                result = await conn.execute(text("""
+                    SELECT column_name, data_type 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'users' 
+                    ORDER BY ordinal_position;
+                """))
+                user_columns = [(row[0], row[1]) for row in result.fetchall()]
+                
+                if user_columns:
+                    health_status["users_table"] = "exists"
+                    health_status["users_columns"] = dict(user_columns)
+                    health_status["users_column_count"] = len(user_columns)
+                    
+                    # Check for critical columns
+                    column_names = [col[0] for col in user_columns]
+                    required_columns = ['id', 'email', 'role', 'hashed_password', 'full_name']
+                    missing_columns = [col for col in required_columns if col not in column_names]
+                    
+                    if missing_columns:
+                        health_status["schema_issue"] = f"Missing columns: {missing_columns}"
+                        health_status["status"] = "degraded"
+                    else:
+                        # Get user count
+                        result = await conn.execute(text("SELECT COUNT(*) FROM users"))
+                        user_count = result.scalar()
+                        health_status["user_count"] = user_count
+                else:
+                    health_status["users_table"] = "missing"
+                    health_status["status"] = "degraded"
         except Exception as e:
-            health_status["users_table"] = "missing"
+            health_status["users_table"] = "error"
             health_status["tables_error"] = str(e)
+            health_status["status"] = "degraded"
             
     except Exception as e:
         health_status["status"] = "degraded"
