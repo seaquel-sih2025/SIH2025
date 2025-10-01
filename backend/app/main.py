@@ -143,8 +143,16 @@ async def startup_event():
                     else:
                         print(f"⚠️  Error with ENUM {enum_name}: {e}")
             
-            # Now create tables
-            await conn.run_sync(Base.metadata.create_all)
+            # Now create tables (handle "already exists" gracefully)
+            try:
+                await conn.run_sync(Base.metadata.create_all)
+                print("✅ All tables created successfully")
+            except Exception as table_error:
+                if "already exists" in str(table_error) or "DuplicateTableError" in str(table_error):
+                    print("✅ Tables already exist (this is normal)")
+                else:
+                    # For other errors, try to continue anyway
+                    print(f"⚠️  Table creation warning: {table_error}")
             
             # Verify critical table structure
             result = await conn.execute(text("""
@@ -166,9 +174,18 @@ async def startup_event():
                 print("🔧 Forcing table recreation...")
                 await conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
                 await conn.run_sync(Base.metadata.create_all)
-                print("✅ Tables recreated")
+                print("✅ Tables recreated with complete schema")
+            elif user_columns:
+                print(f"✅ Users table verified with {len(user_columns)} columns: {user_columns[:5]}...")
+                # Get user count for status
+                try:
+                    result = await conn.execute(text("SELECT COUNT(*) FROM users"))
+                    user_count = result.scalar()
+                    print(f"✅ Database contains {user_count} users")
+                except Exception as e:
+                    print(f"⚠️  Could not count users: {e}")
             else:
-                print(f"✅ Users table verified with {len(user_columns)} columns")
+                print("❌ Users table exists but has no columns - this should not happen")
                 
         print("✓ Database tables created/verified successfully.")
     except Exception as e:
