@@ -112,6 +112,18 @@ async def startup_event():
     except Exception as e:
         print(f"⚠ Sync service failed: {e}")
     
+    # Clean up any corrupted safety circle records (non-blocking)
+    try:
+        from cleanup_safety_circles import cleanup_expired_safety_circles
+        await asyncio.wait_for(cleanup_expired_safety_circles(), timeout=10.0)
+        print("✓ Safety circle cleanup completed.")
+    except asyncio.TimeoutError:
+        print("⚠ Safety circle cleanup timed out")
+    except Exception as e:
+        print(f"⚠ Safety circle cleanup failed (may have corrupted data): {e}")
+        if "day is out of range for month" in str(e):
+            print("⚠ Detected corrupted date records. Run 'python fix_corrupted_dates.py' to fix.")
+    
     print("=" * 60)
     print("✅ Pravaah API startup complete!")
     print("=" * 60)

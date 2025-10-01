@@ -77,6 +77,28 @@ Should return:
 pip freeze > requirements.txt
 ```
 
+### Issue: "day is out of range for month" Error
+**Symptoms**: Backend logs show repeated "Error during cleanup: day is out of range for month"
+**Cause**: Corrupted date records in the safety_circles table
+**Solutions**:
+1. **Quick Fix**: Run the corrupted date fix script:
+   ```bash
+   # In Render shell or one-off command
+   cd /opt/render/project/src/backend
+   python fix_corrupted_dates.py
+   ```
+
+2. **Alternative**: Delete corrupted records manually:
+   ```sql
+   -- Connect to your database and run:
+   DELETE FROM safety_circles WHERE 
+     created_at IS NULL OR expires_at IS NULL
+     OR created_at > NOW() + INTERVAL '1 year'
+     OR expires_at > NOW() + INTERVAL '1 year';
+   ```
+
+3. **Prevention**: The updated cleanup script now handles these errors gracefully
+
 ### Issue: App Crashes After Deploy
 **Check**: Runtime logs in Render dashboard
 **Common causes**:

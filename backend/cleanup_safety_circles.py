@@ -25,11 +25,28 @@ async def cleanup_expired_safety_circles():
             
             print(f"Starting cleanup for safety circles created before {expiration_cutoff.isoformat()}")
 
-            # Find expired safety circles
-            result = await db.execute(
-                select(SafetyCircle).where(SafetyCircle.created_at < expiration_cutoff)
-            )
-            expired_circles = result.scalars().all()
+            # Find expired safety circles with safer query
+            try:
+                result = await db.execute(
+                    select(SafetyCircle).where(SafetyCircle.created_at < expiration_cutoff)
+                )
+                expired_circles = result.scalars().all()
+            except Exception as query_error:
+                print(f"Error querying expired circles: {query_error}")
+                # Try alternative approach - get all circles and filter manually
+                print("Attempting to get all circles and filter manually...")
+                result = await db.execute(select(SafetyCircle))
+                all_circles = result.scalars().all()
+                expired_circles = []
+                
+                for circle in all_circles:
+                    try:
+                        if circle.created_at and circle.created_at < expiration_cutoff:
+                            expired_circles.append(circle)
+                    except Exception as filter_error:
+                        print(f"Error checking expiration for circle {circle.id}: {filter_error}")
+                        # Add this circle to deletion list since it has invalid dates
+                        expired_circles.append(circle)
 
             if not expired_circles:
                 print("No expired safety circles found.")
@@ -39,6 +56,16 @@ async def cleanup_expired_safety_circles():
 
             for circle in expired_circles:
                 try:
+                    # Debug: Check if the date values are valid before processing
+                    try:
+                        created_str = str(circle.created_at) if circle.created_at else "None"
+                        expires_str = str(circle.expires_at) if circle.expires_at else "None"
+                        print(f"Processing circle ID: {circle.id}, created_at: {created_str}, expires_at: {expires_str}")
+                    except Exception as date_error:
+                        print(f"Error accessing dates for circle ID: {circle.id}: {date_error}")
+                        # Skip this circle if we can't even access its dates
+                        continue
+                    
                     # Attempt to delete each circle individually for better error isolation
                     await db.delete(circle)
                     print(f"Deleted expired safety circle ID: {circle.id}")
@@ -47,10 +74,13 @@ async def cleanup_expired_safety_circles():
                     print(f"--- FAILED TO DELETE CIRCLE ID: {circle.id} ---")
                     print(f"Error: {e}")
                     # This will help us debug if the data in a specific row is corrupt
-                    print(f"Circle Data: {circle.__dict__}")
+                    try:
+                        circle_data = {k: v for k, v in circle.__dict__.items() if not k.startswith('_')}
+                        print(f"Circle Data: {circle_data}")
+                    except Exception as dict_error:
+                        print(f"Could not access circle data: {dict_error}")
                     print("-------------------------------------------------")
-                    # Rollback this specific failed transaction but continue the loop
-                    await db.rollback()
+                    # Continue processing other circles
 
 
             await db.commit()
