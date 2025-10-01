@@ -7,6 +7,16 @@ async def create_all_tables():
     """Connects to the database and creates all tables from SQLAlchemy models."""
     try:
         async with engine.begin() as conn:
+            print("🔄 Setting up database extensions...")
+            
+            # Enable PostGIS extension (required for geography types)
+            try:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+                print("✅ PostGIS extension enabled")
+            except Exception as ext_error:
+                print(f"⚠️  PostGIS extension setup failed: {ext_error}")
+                print("🔧 This may require manual database configuration in Render")
+            
             print("🔄 Creating all tables from models...")
             
             # Create all tables defined in models
@@ -14,6 +24,10 @@ async def create_all_tables():
             print("✅ All tables created successfully!")
     except Exception as e:
         print(f"❌ Error creating tables: {e}")
+        print("🔧 If you see 'geography type does not exist', enable PostGIS in your database:")
+        print("   1. Go to Render Dashboard → Your PostgreSQL database")
+        print("   2. Connect to database shell")
+        print("   3. Run: CREATE EXTENSION IF NOT EXISTS postgis;")
         raise e
 
 async def drop_all_tables():
