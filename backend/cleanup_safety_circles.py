@@ -1,74 +1,67 @@
-#!/usr/bin/env python3
-"""
-Safety Circles Cleanup Script
-
-This script should be run periodically (e.g., via cron job) to clean up
-expired safety circles from the database.
-
-Usage:
-    python cleanup_safety_circles.py
-
-Cron job example (run every hour):
-    0 * * * * cd /path/to/backend && python cleanup_safety_circles.py
-"""
-
 import asyncio
-import sys
-from datetime import datetime
-from pathlib import Path
-
-# Add the app directory to the Python path
-sys.path.insert(0, str(Path(__file__).parent))
-
-from app.db.session import async_session
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import select
 from app.db.models import SafetyCircle
-from sqlalchemy.future import select
+from datetime import datetime, timedelta
+import os
 
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def cleanup_expired_safety_circles():
-    """Remove safety circles that have expired (older than 48 hours)."""
-    try:
-        async with async_session() as db:
-            current_time = datetime.utcnow()
+    if not DATABASE_URL:
+        print("DATABASE_URL not set, skipping cleanup.")
+        return
+
+    engine = create_async_engine(DATABASE_URL)
+    AsyncSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+    )
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # By default, circles expire after 24 hours.
+            expiration_cutoff = datetime.now() - timedelta(days=1)
             
-            # Find expired circles
+            print(f"Starting cleanup for safety circles created before {expiration_cutoff.isoformat()}")
+
+            # Find expired safety circles
             result = await db.execute(
-                select(SafetyCircle)
-                .where(SafetyCircle.expires_at <= current_time)
+                select(SafetyCircle).where(SafetyCircle.created_at < expiration_cutoff)
             )
             expired_circles = result.scalars().all()
-            
-            count = len(expired_circles)
-            
-            if count > 0:
-                # Delete expired circles
-                for circle in expired_circles:
+
+            if not expired_circles:
+                print("No expired safety circles found.")
+                return
+
+            print(f"Found {len(expired_circles)} expired circles to delete.")
+
+            for circle in expired_circles:
+                try:
+                    # Attempt to delete each circle individually for better error isolation
                     await db.delete(circle)
-                
-                await db.commit()
-                print(f"[{datetime.now()}] Cleaned up {count} expired safety circles")
-            else:
-                print(f"[{datetime.now()}] No expired safety circles found")
-                
-    except Exception as e:
-        print(f"[{datetime.now()}] Error during cleanup: {e}")
-        return False
-    
-    return True
+                    print(f"Deleted expired safety circle ID: {circle.id}")
+                except Exception as e:
+                    # If an error occurs for one circle, log it and continue
+                    print(f"--- FAILED TO DELETE CIRCLE ID: {circle.id} ---")
+                    print(f"Error: {e}")
+                    # This will help us debug if the data in a specific row is corrupt
+                    print(f"Circle Data: {circle.__dict__}")
+                    print("-------------------------------------------------")
+                    # Rollback this specific failed transaction but continue the loop
+                    await db.rollback()
 
 
-async def main():
-    """Main function to run the cleanup."""
-    print(f"[{datetime.now()}] Starting safety circles cleanup...")
-    success = await cleanup_expired_safety_circles()
-    
-    if success:
-        print(f"[{datetime.now()}] Cleanup completed successfully")
-        sys.exit(0)
-    else:
-        print(f"[{datetime.now()}] Cleanup failed")
-        sys.exit(1)
-
+            await db.commit()
+            print("Safety circle cleanup complete.")
+        except Exception as e:
+            # This will catch broader errors, e.g., connection issues
+            print(f"A critical error occurred during the cleanup process: {e}")
+            await db.rollback()
+        finally:
+            await engine.dispose()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    print("Running manual cleanup of expired safety circles...")
+    asyncio.run(cleanup_expired_safety_circles())
