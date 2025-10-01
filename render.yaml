@@ -4,8 +4,8 @@ services:
     env: python
     plan: free
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt && python create_tables.py"
-    startCommand: "gunicorn app.main:app -c gunicorn.conf.py"
+    buildCommand: "pip install --no-cache-dir -r requirements.txt"
+    startCommand: "python create_tables.py && gunicorn app.main:app -c gunicorn.conf.py"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.5
@@ -19,6 +19,10 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 30
+      - key: ENVIRONMENT
+        value: production
+      - key: FRONTEND_URL
+        value: https://pravaah-frontend.onrender.com
   - type: worker
     name: general-worker
     env: python

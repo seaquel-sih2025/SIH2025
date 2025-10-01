@@ -1,5 +1,7 @@
 # Gunicorn configuration file for Render deployment
-bind = "0.0.0.0:$PORT"
+import os
+
+bind = f"0.0.0.0:{os.getenv('PORT', '10000')}"
 workers = 4
 worker_class = "uvicorn.workers.UvicornWorker"
 worker_connections = 1000

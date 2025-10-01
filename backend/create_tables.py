@@ -5,12 +5,16 @@ from app.db.models import Base
 
 async def create_all_tables():
     """Connects to the database and creates all tables from SQLAlchemy models."""
-    async with engine.begin() as conn:
-        print("🔄 Creating all tables from models...")
-        
-        # Create all tables defined in models
-        await conn.run_sync(Base.metadata.create_all)
-        print("✅ All tables created successfully!")
+    try:
+        async with engine.begin() as conn:
+            print("🔄 Creating all tables from models...")
+            
+            # Create all tables defined in models
+            await conn.run_sync(Base.metadata.create_all)
+            print("✅ All tables created successfully!")
+    except Exception as e:
+        print(f"❌ Error creating tables: {e}")
+        raise e
 
 async def drop_all_tables():
     """Drops all existing tables and their associated types (for fresh database creation)."""
@@ -44,6 +48,15 @@ async def create_fresh_database():
 async def main():
     """Main function with options for different operations."""
     import sys
+    import os
+    
+    # Verify DATABASE_URL is available
+    if not os.getenv("DATABASE_URL"):
+        print("❌ ERROR: DATABASE_URL environment variable is not set!")
+        print("Make sure your database is properly configured in Render.")
+        sys.exit(1)
+    
+    print(f"🔗 Using database: {os.getenv('DATABASE_URL', 'Not set')[:50]}...")
     
     if len(sys.argv) > 1:
         command = sys.argv[1].lower()

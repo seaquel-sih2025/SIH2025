@@ -26,4 +26,4 @@ RUN mkdir -p uploads offline_media
 EXPOSE $PORT
 
 # Command to run the application
-CMD gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+CMD ["sh", "-c", "gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-10000}"]
