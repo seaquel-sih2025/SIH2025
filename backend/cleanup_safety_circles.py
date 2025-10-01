@@ -65,3 +65,4 @@ async def cleanup_expired_safety_circles():
 if __name__ == "__main__":
     print("Running manual cleanup of expired safety circles...")
     asyncio.run(cleanup_expired_safety_circles())
+
