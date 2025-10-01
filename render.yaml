@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    startCommand: "python complete_datetime_fix.py && python create_tables.py && gunicorn app.main:app -c gunicorn.conf.py"
+    startCommand: "python create_tables.py && gunicorn app.main:app -c gunicorn.conf.py"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.5
@@ -23,6 +23,30 @@ services:
         value: production
       - key: FRONTEND_URL
         value: https://pravaah-frontend.onrender.com
+      - key: RABBITMQ_URL
+        sync: false
+      - key: WEATHERAPI_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_REGION
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_CLIENT_ID
+        sync: false
   - type: worker
     name: general-worker
     env: python
@@ -34,6 +58,10 @@ services:
         fromDatabase:
           name: pravaah_db
           property: connectionString
+      - key: RABBITMQ_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
   - type: worker
     name: weather-worker
     env: python
@@ -45,6 +73,10 @@ services:
         fromDatabase:
           name: pravaah_db
           property: connectionString
+      - key: WEATHERAPI_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
   - type: worker
     name: peer-notification-worker
     env: python
@@ -56,6 +88,10 @@ services:
         fromDatabase:
           name: pravaah_db
           property: connectionString
+      - key: RABBITMQ_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
   - type: worker
     name: ai-worker
     env: python
@@ -67,6 +103,10 @@ services:
         fromDatabase:
           name: pravaah_db
           property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
 databases:
   - name: pravaah_db
     plan: free
