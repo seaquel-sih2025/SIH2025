@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
 from uuid import UUID
 from datetime import datetime
 
@@ -10,8 +10,23 @@ class UserBase(BaseModel):
     phone: str | None = None
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8, max_length=128, description="Password must be 8-128 characters long")
     role: UserRole
+    
+    @validator('password')
+    def validate_password(cls, v):
+        # Check password length in bytes (bcrypt limit is 72 bytes)
+        if len(v.encode('utf-8')) > 72:
+            # For very long passwords, we'll pre-hash them in security.py
+            # But warn users about the practical limit
+            if len(v) > 128:
+                raise ValueError('Password is too long. Please use a password with fewer than 128 characters.')
+        
+        # Basic password strength checks
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+            
+        return v
 
 class UserRead(UserBase):
     id: UUID

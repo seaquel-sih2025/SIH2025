@@ -50,6 +50,10 @@ async def register_user(
     print(f"📝 AuthService: Registering user with payload: {user_in.model_dump(exclude={'password'})}")
     
     try:
+        # Additional password validation (Pydantic should catch most issues)
+        if len(user_in.password.encode('utf-8')) > 72:
+            print(f"🔐 Password for {user_in.email} is longer than 72 bytes, will be pre-hashed")
+        
         # Check if user exists
         query = select(User).where(User.email == user_in.email)
         result = await asyncio.wait_for(db.execute(query), timeout=3.0)
