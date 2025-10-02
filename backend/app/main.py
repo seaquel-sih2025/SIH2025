@@ -135,24 +135,6 @@ else:
     if additional_origins:
         origins_list = [origin.strip() for origin in additional_origins.split(",")]
         allowed_origins.extend(origins_list)
-    # Production - always explicit origins
-    allowed_origins = []
-    
-    # Add frontend URL from environment variable (primary)
-    frontend_url = os.getenv("FRONTEND_URL")
-    if frontend_url:
-        # Clean the URL (remove trailing slash)
-        frontend_url = frontend_url.rstrip('/')
-        allowed_origins.append(frontend_url)
-    
-    # Fallback to default Render URL if FRONTEND_URL not set
-    if not allowed_origins:
-        allowed_origins.append("https://pravaah-frontend.onrender.com")
-    
-    # Add Vercel deployment URLs if present
-    vercel_url = os.getenv("VERCEL_URL")
-    if vercel_url:
-        allowed_origins.append(f"https://{vercel_url}")
 
 app.add_middleware(
     CORSMiddleware,
