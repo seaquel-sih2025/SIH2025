@@ -407,6 +407,18 @@ def read_root():
         "cors_origins": allowed_origins
     }
 
+@app.get("/rabbitmq/status", tags=["Monitoring"])
+async def rabbitmq_status():
+    """Check RabbitMQ connection and queue status"""
+    try:
+        queue_status = await rabbitmq_service.get_queue_status()
+        return queue_status
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to get RabbitMQ status: {str(e)}"
+        }
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint to verify API and database connectivity"""

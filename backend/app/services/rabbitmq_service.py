@@ -61,4 +61,49 @@ class RabbitMQService:
         await queue.consume(callback)
         print(f"[*] Started consuming from queue: {queue_name}")
 
+    def is_connected(self) -> bool:
+        """Check if RabbitMQ connection is active."""
+        return self.connection is not None and not self.connection.is_closed
+
+    async def get_queue_status(self) -> dict:
+        """Get status of all queues used by the application."""
+        if not self.channel:
+            return {"status": "disconnected", "error": "RabbitMQ not connected"}
+        
+        try:
+            queues_to_check = [
+                "report_processing_queue",
+                "nlp_queue", 
+                "weather_queue",
+                "peer_notification_queue"
+            ]
+            
+            queue_status = {}
+            for queue_name in queues_to_check:
+                try:
+                    # Declare queue to ensure it exists and get info
+                    queue = await self.channel.declare_queue(queue_name, durable=True)
+                    
+                    # Get queue information (message count, consumer count)
+                    queue_info = await queue.declare()
+                    queue_status[queue_name] = {
+                        "message_count": queue_info.message_count,
+                        "consumer_count": queue_info.consumer_count,
+                        "status": "active"
+                    }
+                except Exception as e:
+                    queue_status[queue_name] = {
+                        "status": "error",
+                        "error": str(e)
+                    }
+            
+            return {
+                "status": "connected",
+                "connection_status": "open" if not self.connection.is_closed else "closed",
+                "queues": queue_status
+            }
+            
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
 rabbitmq_service = RabbitMQService()

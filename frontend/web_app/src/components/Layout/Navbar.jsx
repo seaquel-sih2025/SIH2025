@@ -176,9 +176,17 @@ const Navbar = () => {
           body: JSON.stringify(safetyCircleData)
         });
 
-        if (!response.ok) console.error('Failed to save safety circle');
+        if (response.ok) {
+          const savedCircle = await response.json();
+          console.log('✅ Safety circle saved to database:', savedCircle);
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Failed to save safety circle:', response.status, errorText);
+          alert(`Failed to save safety status: ${response.status} - ${errorText}`);
+        }
       } catch (dbError) {
-        console.error('Error saving to DB:', dbError);
+        console.error('❌ Error saving to DB:', dbError);
+        alert(`Database error: ${dbError.message}`);
       }
       
       window.dispatchEvent(new CustomEvent('addSafetyCircle', {
@@ -230,9 +238,17 @@ const Navbar = () => {
           body: JSON.stringify(safetyCircleData)
         });
 
-        if (!response.ok) console.error('Failed to save safety circle');
+        if (response.ok) {
+          const savedCircle = await response.json();
+          console.log('✅ Safety circle saved to database:', savedCircle);
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Failed to save safety circle:', response.status, errorText);
+          alert(`Failed to save safety status: ${response.status} - ${errorText}`);
+        }
       } catch (dbError) {
-        console.error('Error saving to DB:', dbError);
+        console.error('❌ Error saving to DB:', dbError);
+        alert(`Database error: ${dbError.message}`);
       }
 
       window.dispatchEvent(new CustomEvent('addSafetyCircle', {
