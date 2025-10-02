@@ -18,6 +18,7 @@ import {
 
 import { getUserRole, getDashboardRoute } from '../../utils/auth';
 import notificationService from '../../services/notificationService';
+import api from '../../utils/api';
 
 const Navbar = () => {
   const location = useLocation();
@@ -167,26 +168,15 @@ const Navbar = () => {
       };
 
       try {
-        const response = await fetch('/api/safety-circles/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify(safetyCircleData)
-        });
-
-        if (response.ok) {
-          const savedCircle = await response.json();
-          console.log('✅ Safety circle saved to database:', savedCircle);
-        } else {
-          const errorText = await response.text();
-          console.error('❌ Failed to save safety circle:', response.status, errorText);
-          alert(`Failed to save safety status: ${response.status} - ${errorText}`);
-        }
+        // Use shared axios client so baseURL and auth headers are applied
+        const { data: savedCircle } = await api.post('/safety-circles/', safetyCircleData);
+        console.log('✅ Safety circle saved to database:', savedCircle);
       } catch (dbError) {
-        console.error('❌ Error saving to DB:', dbError);
-        alert(`Database error: ${dbError.message}`);
+        // Axios wraps errors; surface server payload if any
+        const status = dbError.response?.status;
+        const payload = dbError.response?.data;
+        console.error('❌ Error saving to DB:', status, payload || dbError.message);
+        alert(`Database error: ${status ?? ''} ${payload?.detail ?? dbError.message}`.trim());
       }
       
       window.dispatchEvent(new CustomEvent('addSafetyCircle', {
@@ -229,26 +219,13 @@ const Navbar = () => {
       };
 
       try {
-        const response = await fetch('/api/safety-circles/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify(safetyCircleData)
-        });
-
-        if (response.ok) {
-          const savedCircle = await response.json();
-          console.log('✅ Safety circle saved to database:', savedCircle);
-        } else {
-          const errorText = await response.text();
-          console.error('❌ Failed to save safety circle:', response.status, errorText);
-          alert(`Failed to save safety status: ${response.status} - ${errorText}`);
-        }
+        const { data: savedCircle } = await api.post('/safety-circles/', safetyCircleData);
+        console.log('✅ Safety circle saved to database:', savedCircle);
       } catch (dbError) {
-        console.error('❌ Error saving to DB:', dbError);
-        alert(`Database error: ${dbError.message}`);
+        const status = dbError.response?.status;
+        const payload = dbError.response?.data;
+        console.error('❌ Error saving to DB:', status, payload || dbError.message);
+        alert(`Database error: ${status ?? ''} ${payload?.detail ?? dbError.message}`.trim());
       }
 
       window.dispatchEvent(new CustomEvent('addSafetyCircle', {

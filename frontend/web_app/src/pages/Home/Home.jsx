@@ -3,6 +3,7 @@ import { MapPin, Waves, Shield, Phone, Navigation, AlertTriangle, CheckCircle, U
 import MapView from '../../components/MapView.jsx';
 import Feed from '../../components/Feed';
 import { fetchHotspots, fetchRecentReports } from '../../services/hotspotService.js';
+import api from '../../utils/api';
 import { getMediaUrl, getPlaceholderImageUrl } from '../../utils/imageUtils';
 
 const Home = () => {
@@ -59,16 +60,8 @@ const Home = () => {
         }
 
         console.log('Loading safety circles from database...');
-        const response = await fetch('/api/safety-circles/active', {
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
-        });
-
-        console.log('Safety circles response status:', response.status);
-        
-        if (response.ok) {
-          const circles = await response.json();
+        const { data: circles } = await api.get('/safety-circles/active');
+        if (Array.isArray(circles)) {
           console.log('Raw safety circles from API:', circles);
           
           const mappedCircles = circles.map(circle => ({
@@ -83,10 +76,6 @@ const Home = () => {
           
           setSafetyCircles(mappedCircles);
           console.log('Loaded', mappedCircles.length, 'safety circles from database');
-        } else {
-          console.error('Failed to load safety circles:', response.status, response.statusText);
-          const errorText = await response.text();
-          console.error('Error response:', errorText);
         }
       } catch (error) {
         console.error('Error loading safety circles:', error);
@@ -433,14 +422,8 @@ const Home = () => {
                           console.log('Manually refreshing safety circles...');
                           console.log('Current circles before refresh:', safetyCircles.length);
                           
-                          const response = await fetch('/api/safety-circles/active', {
-                            headers: { 'Authorization': `Bearer ${authToken}` }
-                          });
-                          
-                          console.log('Manual refresh response status:', response.status);
-                          
-                          if (response.ok) {
-                            const circles = await response.json();
+                          const { data: circles } = await api.get('/safety-circles/active');
+                          if (Array.isArray(circles)) {
                             console.log('Raw circles from API:', circles);
                             
                             const mappedCircles = circles.map(circle => ({
@@ -461,11 +444,6 @@ const Home = () => {
                               setSafetyCircles(mappedCircles);
                               console.log('Manual refresh: State updated with', mappedCircles.length, 'safety circles');
                             }, 50);
-                            
-                          } else {
-                            const errorText = await response.text();
-                            console.error('Manual refresh failed:', response.status, errorText);
-                            alert(`Failed to refresh: ${response.status} - ${errorText}`);
                           }
                         } catch (error) {
                           console.error('Manual refresh error:', error);
