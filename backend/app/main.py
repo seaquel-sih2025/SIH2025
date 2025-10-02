@@ -5,10 +5,96 @@ from app.api.api import api_router
 from app.core.config import settings
 import os
 import asyncio
+import json
+import uuid
+from aio_pika.abc import AbstractIncomingMessage
 from app.services.rabbitmq_service import rabbitmq_service
 from app.services.connectivity_service import connectivity_service
 from app.services.sync_service import sync_service
 from app.db.sqlite_setup import init_sqlite_db
+
+# Worker functions for background processing
+async def process_report_message(message: AbstractIncomingMessage):
+    """
+    Callback function to process a message from the report_processing_queue.
+    This worker's main jobs are:
+    1. Save the initial report and media file records to the database.
+    2. Dispatch new, specialized tasks to the verification queues (fan-out).
+    """
+    async with message.process():
+        try:
+            from app.db.session import get_db
+            from app.db.models import Report, Media, HazardType, MediaType, User
+            
+            body = json.loads(message.body.decode())
+            report_id = uuid.UUID(body["report_id"])
+            user_id = uuid.UUID(body["user_id"])
+            report_data = body["report_data"]
+            media_files_data = body["media_files"]
+
+            print(f"[+] Received initial report {report_id}. Saving to DB and dispatching.")
+
+            async for db in get_db():
+                new_report = Report(
+                    id=report_id,
+                    user_id=user_id,
+                    user_hazard_type=HazardType(report_data["user_hazard_type"]),
+                    user_description=report_data["user_description"],
+                    user_location=f'SRID=4326;POINT({report_data["longitude"]} {report_data["latitude"]})'
+                )
+                db.add(new_report)
+
+                for media_data in media_files_data:
+                    new_media = Media(
+                        report_id=report_id,
+                        file_url=media_data["file_url"],
+                        media_type=MediaType(media_data["media_type"]),
+                    )
+                    db.add(new_media)
+
+                await db.commit()
+                print(f"  - Successfully saved report {report_id} and {len(media_files_data)} media file(s) to the database.")
+
+            # Dispatch to other queues for further processing
+            nlp_message = {
+                "report_id": str(report_id),
+                "user_description": report_data["user_description"],
+                "media_files": media_files_data,
+            }
+            await rabbitmq_service.publish_message("nlp_queue", nlp_message)
+            print(f"  - Dispatched task to nlp_queue for report {report_id}")
+
+            weather_message = {
+                "report_id": str(report_id),
+                "latitude": report_data["latitude"],
+                "longitude": report_data["longitude"],
+                "user_hazard_type": report_data["user_hazard_type"]
+            }
+            await rabbitmq_service.publish_message("weather_queue", weather_message)
+            print(f"  - Dispatched task to weather_queue for report {report_id}")
+
+            peer_message = {
+                "report_id": str(report_id),
+                "latitude": report_data["latitude"],
+                "longitude": report_data["longitude"],
+                "hazard_type": report_data["user_hazard_type"],
+            }
+            await rabbitmq_service.publish_message("peer_notification_queue", peer_message)
+            print(f"  - Dispatched task to peer_notification_queue for report {report_id}")
+
+            print(f"[✔] Finished processing and dispatching for report {report_id}.")
+
+        except Exception as e:
+            print(f"[!] Error processing report message: {e}")
+
+async def start_background_worker():
+    """Start the background worker to process reports from RabbitMQ"""
+    try:
+        print("🚀 Starting background report processing worker...")
+        await rabbitmq_service.consume_messages("report_processing_queue", process_report_message)
+        print("✅ Background worker started and listening for messages")
+    except Exception as e:
+        print(f"❌ Failed to start background worker: {e}")
 
 app = FastAPI(
     title="Pravaah API",
@@ -206,6 +292,15 @@ async def startup_event():
     try:
         await asyncio.wait_for(rabbitmq_service.connect(), timeout=5.0)
         print("✓ Successfully connected to RabbitMQ.")
+        
+        # Start background worker for processing reports
+        try:
+            # Create background task for report processing worker
+            asyncio.create_task(start_background_worker())
+            print("✓ Background report processing worker started.")
+        except Exception as worker_error:
+            print(f"⚠ Failed to start background worker: {worker_error}")
+            
     except asyncio.TimeoutError:
         print("⚠ RabbitMQ connection timed out (running without message queue)")
     except Exception as e:
