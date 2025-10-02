@@ -40,7 +40,8 @@ async def process_report_message(message: AbstractIncomingMessage):
                     user_id=user_id,
                     user_hazard_type=HazardType(report_data["user_hazard_type"]),
                     user_description=report_data["user_description"],
-                    user_location=f'SRID=4326;POINT({report_data["longitude"]} {report_data["latitude"]})'
+                    user_location=f'SRID=4326;POINT({report_data["longitude"]} {report_data["latitude"]})',
+                    final_confidence_score=0.5  # Set initial confidence to 0.5 so reports appear on map
                 )
                 db.add(new_report)
 
