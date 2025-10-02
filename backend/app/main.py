@@ -200,7 +200,7 @@ async def startup_event():
             # Pre-create ENUM types to avoid conflicts
             enum_types = [
                 ("user_role", ["citizen", "verified_reporter", "emergency_responder", "admin"]),
-                ("hazard_type", ["flood", "fire", "earthquake", "cyclone", "landslide", "accident", "medical_emergency", "security_threat", "infrastructure_failure", "other"]),
+                ("hazard_type", ["tsunami", "high_waves", "coastal_flooding", "storm_surge", "rip_current", "coastal_erosion", "water_discoloration", "marine_debris", "other"]),
                 ("report_status", ["under_verification", "verified", "rejected", "resolved"]),
                 ("media_type", ["image", "video", "audio"]),
                 ("verification_source", ["ai_analysis", "expert_review", "crowd_verification", "official_confirmation"])
@@ -221,7 +221,37 @@ async def startup_event():
                         """))
                         print(f"✅ Created ENUM type: {enum_name}")
                     else:
-                        print(f"✓ ENUM type {enum_name} already exists")
+                        # ENUM exists - check if it has the correct values (especially for hazard_type)
+                        if enum_name == "hazard_type":
+                            try:
+                                # Check current enum values
+                                result = await conn.execute(text(f"""
+                                    SELECT unnest(enum_range(NULL::{enum_name}))::text;
+                                """))
+                                current_values = [row[0] for row in result.fetchall()]
+                                
+                                # Check if we have the ocean-specific hazard types
+                                if "high_waves" not in current_values:
+                                    print(f"🔄 Updating {enum_name} enum to include ocean hazard types...")
+                                    
+                                    # Drop tables that depend on this enum
+                                    await conn.execute(text("DROP TABLE IF EXISTS reports CASCADE;"))
+                                    await conn.execute(text("DROP TABLE IF EXISTS media CASCADE;"))
+                                    print("  - Dropped dependent tables")
+                                    
+                                    # Drop and recreate the enum
+                                    await conn.execute(text(f"DROP TYPE IF EXISTS {enum_name} CASCADE;"))
+                                    values_str = ", ".join([f"'{value}'" for value in enum_values])
+                                    await conn.execute(text(f"""
+                                        CREATE TYPE {enum_name} AS ENUM ({values_str});
+                                    """))
+                                    print(f"  - Recreated {enum_name} enum with ocean hazard types")
+                                else:
+                                    print(f"✓ ENUM type {enum_name} has correct values")
+                            except Exception as enum_check_error:
+                                print(f"⚠️  Could not verify {enum_name} values: {enum_check_error}")
+                        else:
+                            print(f"✓ ENUM type {enum_name} already exists")
                         
                 except Exception as e:
                     if "already exists" in str(e) or "duplicate key" in str(e):
