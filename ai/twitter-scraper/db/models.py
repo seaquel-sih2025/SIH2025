@@ -13,36 +13,41 @@ def get_connection():
 
 def create_table():
     """
-    Creates the 'scraped_data' table if it doesn't exist and runs
-    idempotent migrations to rename old columns and add new ones.
+    Ensures the 'scraped_data' table exists with the expected columns.
+    Idempotent and non-destructive: will not drop existing data.
     """
     conn = get_connection()
     cur = conn.cursor()
-    
-    # Drop existing table to ensure clean creation with proper constraints
-    cur.execute("DROP TABLE IF EXISTS scraped_data;")
-    
-    # Create table with proper SERIAL primary key
-    cur.execute("""
-    CREATE TABLE scraped_data (
-        id SERIAL PRIMARY KEY,
-        event_type TEXT,
-        location TEXT,
-        urgency TEXT,
-        sentiment TEXT,
-        source_url TEXT,
-        source_created_at TIMESTAMP WITH TIME ZONE,
-        source_date DATE,
-        source_time TIME,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    );
-    """)
-    
-    print("✅ Created scraped_data table with proper SERIAL ID column")
-    conn.commit()
-    cur.close()
-    conn.close()
-    
+
+    # Create table if not exists
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scraped_data (
+            id SERIAL PRIMARY KEY,
+            event_type TEXT,
+            location TEXT,
+            urgency TEXT,
+            sentiment TEXT,
+            source_url TEXT,
+            source_created_at TIMESTAMPTZ,
+            source_date DATE,
+            source_time TIME,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        """
+    )
+
+    # Add missing columns if they were absent in older runs
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS event_type TEXT;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS location TEXT;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS urgency TEXT;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS sentiment TEXT;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS source_url TEXT;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS source_created_at TIMESTAMPTZ;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS source_date DATE;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS source_time TIME;")
+    cur.execute("ALTER TABLE scraped_data ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();")
+
     conn.commit()
     cur.close()
     conn.close()

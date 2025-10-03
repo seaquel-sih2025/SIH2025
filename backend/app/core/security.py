@@ -41,10 +41,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
                 return actual_hash == expected_hash
             return False
         
-        # For bcrypt hashes, pre-hash passwords longer than 72 bytes
+        # For bcrypt hashes, handle passwords longer than 72 bytes the same way as hashing
         password_to_verify = plain_password
-        if len(plain_password.encode('utf-8')) > 72:
-            password_to_verify = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+        password_bytes = plain_password.encode('utf-8')
+        
+        if len(password_bytes) > 72:
+            # Pre-hash with SHA-256 to match what was done during hashing
+            password_to_verify = hashlib.sha256(password_bytes).hexdigest()
         
         return pwd_context.verify(password_to_verify, hashed_password)
     except Exception as e:
@@ -54,12 +57,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def hash_password(password: str) -> str:
     """
     Hash a password using the available method (bcrypt or fallback).
+    Automatically handles bcrypt's 72-byte limit by pre-hashing long passwords.
     """
     try:
-        # Always pre-hash passwords longer than 72 bytes to handle bcrypt's limit
+        # Handle bcrypt's 72-byte limit by pre-hashing long passwords
         password_to_hash = password
-        if len(password.encode('utf-8')) > 72:
-            password_to_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        password_bytes = password.encode('utf-8')
+        
+        if len(password_bytes) > 72:
+            print(f"Password too long ({len(password_bytes)} bytes), pre-hashing with SHA-256...")
+            # Pre-hash with SHA-256 to fit within bcrypt's 72-byte limit
+            password_to_hash = hashlib.sha256(password_bytes).hexdigest()
         
         return pwd_context.hash(password_to_hash)
     except Exception as e:

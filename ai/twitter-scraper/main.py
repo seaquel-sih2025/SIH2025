@@ -115,8 +115,9 @@ def main():
 				# If model didn't extract a location, use place name if available
 				if place_name and not (llm_json.get("location") or "").strip():
 					llm_json["location"] = place_name
-				llm_json["tweet_url"] = tweet_url
-				llm_json["tweet_created_at"] = tweet_created_at
+				# Align with DB schema (db/models.py expects source_url/source_created_at)
+				llm_json["source_url"] = tweet_url
+				llm_json["source_created_at"] = tweet_created_at
 				store_scraped_data(llm_json)
 				print("Stored in DB.")
 			else:

@@ -70,10 +70,11 @@ def fallback_analysis(description: str):
     # Simple keyword matching for hazard type
     hazard_keywords = {
         "tsunami": ["tsunami", "tidal wave", "giant wave"],
-        "storm surge": ["storm surge", "storm", "surge"],
-        "high waves": ["high waves", "big waves", "swell", "rough seas"],
-        "coastal flooding": ["flooding", "flood", "water level", "inundation"],
-        "rip current": ["rip current", "rip", "undertow"],
+        "storm_surge": ["storm surge", "storm", "surge"],
+        "high_waves": ["high waves", "big waves", "swell", "rough seas", "high surf", "surf advisory"],
+        "coastal_flooding": ["coastal flooding", "flooding", "flood", "water level", "inundation"],
+        "rip_current": ["rip current", "rip", "undertow"],
+        "coastal_erosion": ["coastal erosion", "beach erosion", "shoreline erosion"],
         "other": []
     }
     
@@ -99,7 +100,8 @@ def fallback_analysis(description: str):
         sentiment = "Informative"
     
     return {
-        "hazard_type": detected_hazard.title(),
+        # Use backend enum style: lowercase with underscores
+        "hazard_type": detected_hazard,
         "urgency": urgency,
         "sentiment": sentiment,
         "summary": f"Fallback analysis: {description[:100]}{'...' if len(description) > 100 else ''}",
@@ -124,6 +126,29 @@ def on_message_received(ch, method, properties, body):
     print(f" [*] Analyzing description for report_id: {report_id}")
     analysis_results = analyze_description_with_gemini(description)
 
+    # Normalize hazard_type to backend enum (lowercase with underscores)
+    try:
+        ht = analysis_results.get("hazard_type") if isinstance(analysis_results, dict) else None
+        if isinstance(ht, str) and ht.strip():
+            norm = ht.strip().lower().replace("-", "_").replace(" ", "_")
+            synonyms = {
+                "storm": "storm_surge",
+                "stormsurge": "storm_surge",
+                "high_surf": "high_waves",
+                "high_wave": "high_waves",
+                "coastal_flood": "coastal_flooding",
+                "rip": "rip_current",
+                "ripcurrents": "rip_current",
+                "erosion": "coastal_erosion",
+                "algae_bloom": "water_discoloration",
+                "algal_bloom": "water_discoloration",
+                "red_tide": "water_discoloration",
+                "debris": "marine_debris",
+            }
+            analysis_results["hazard_type"] = synonyms.get(norm, norm)
+    except Exception:
+        pass
+
     # Prepare data for the fan-in endpoint
     verification_payload = {
         "report_id": report_id,
@@ -134,7 +159,8 @@ def on_message_received(ch, method, properties, body):
     try:
         response = requests.post(
             f"{settings.BACKEND_URL}/api/verifications/nlp",
-            json=verification_payload
+            json=verification_payload,
+            timeout=30
         )
         response.raise_for_status() # Raise an exception for bad status codes
         print(f" [✔] Successfully submitted NLP verification for report_id: {report_id}")

@@ -112,7 +112,7 @@ if environment == "development":
     allowed_origins = ["*"]
 else:
     # Production - always explicit origins
-    allowed_origins = []
+    allowed_origins = [] #change this to empty array
     
     # Add frontend URL from environment variable (primary)
     frontend_url = os.getenv("FRONTEND_URL")
@@ -182,7 +182,7 @@ async def startup_event():
             
             # Pre-create ENUM types to avoid conflicts
             enum_types = [
-                ("user_role", ["citizen", "verified_reporter", "emergency_responder", "admin"]),
+                ("user_role", ["citizen", "official", "authority", "analyst"]),
                 ("hazard_type", ["tsunami", "high_waves", "coastal_flooding", "storm_surge", "rip_current", "coastal_erosion", "water_discoloration", "marine_debris", "other"]),
                 ("report_status", ["under_verification", "verified", "rejected", "resolved"]),
                 ("media_type", ["image", "video", "audio"]),
@@ -204,8 +204,8 @@ async def startup_event():
                         """))
                         print(f"✅ Created ENUM type: {enum_name}")
                     else:
-                        # ENUM exists - check if it has the correct values (especially for hazard_type)
-                        if enum_name == "hazard_type":
+                        # ENUM exists - check if it has the correct values
+                        if enum_name in ["hazard_type", "user_role"]:
                             try:
                                 # Check current enum values
                                 result = await conn.execute(text(f"""
@@ -213,14 +213,23 @@ async def startup_event():
                                 """))
                                 current_values = [row[0] for row in result.fetchall()]
                                 
-                                # Check if we have the ocean-specific hazard types
-                                if "high_waves" not in current_values:
-                                    print(f"🔄 Updating {enum_name} enum to include ocean hazard types...")
+                                # Check if we have the correct values
+                                missing_values = [v for v in enum_values if v not in current_values]
+                                if missing_values:
+                                    print(f"🔄 Updating {enum_name} enum to include missing values: {missing_values}")
                                     
-                                    # Drop tables that depend on this enum
-                                    await conn.execute(text("DROP TABLE IF EXISTS reports CASCADE;"))
-                                    await conn.execute(text("DROP TABLE IF EXISTS media CASCADE;"))
-                                    print("  - Dropped dependent tables")
+                                    if enum_name == "hazard_type":
+                                        # Drop tables that depend on this enum
+                                        await conn.execute(text("DROP TABLE IF EXISTS reports CASCADE;"))
+                                        await conn.execute(text("DROP TABLE IF EXISTS media CASCADE;"))
+                                        print("  - Dropped dependent tables")
+                                    elif enum_name == "user_role":
+                                        # Drop tables that depend on this enum
+                                        await conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
+                                        await conn.execute(text("DROP TABLE IF EXISTS reports CASCADE;"))
+                                        await conn.execute(text("DROP TABLE IF EXISTS media CASCADE;"))
+                                        await conn.execute(text("DROP TABLE IF EXISTS safety_circles CASCADE;"))
+                                        print("  - Dropped dependent tables")
                                     
                                     # Drop and recreate the enum
                                     await conn.execute(text(f"DROP TYPE IF EXISTS {enum_name} CASCADE;"))
@@ -228,7 +237,7 @@ async def startup_event():
                                     await conn.execute(text(f"""
                                         CREATE TYPE {enum_name} AS ENUM ({values_str});
                                     """))
-                                    print(f"  - Recreated {enum_name} enum with ocean hazard types")
+                                    print(f"  - Recreated {enum_name} enum with correct values")
                                 else:
                                     print(f"✓ ENUM type {enum_name} has correct values")
                             except Exception as enum_check_error:
