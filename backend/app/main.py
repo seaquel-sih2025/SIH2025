@@ -135,6 +135,17 @@ else:
     if additional_origins:
         origins_list = [origin.strip() for origin in additional_origins.split(",")]
         allowed_origins.extend(origins_list)
+    
+    # Add localhost origins for local development testing
+    localhost_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:5173"
+    ]
+    allowed_origins.extend(localhost_origins)
 
 app.add_middleware(
     CORSMiddleware,

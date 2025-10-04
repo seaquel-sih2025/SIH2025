@@ -3,7 +3,7 @@ import json
 
 def test_registration():
     """Test user registration for different roles"""
-    base_url = "http://127.0.0.1:8001"
+    base_url = "http://127.0.0.1:8000"
     
     test_users = [
         {
