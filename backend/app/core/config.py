@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     
     # --- AI/LLM Settings ---
     GEMINI_API_KEY: Optional[str] = None
+    HUGGING_FACE_TOKEN: Optional[str] = None
     
     # --- Backend URL ---
     BACKEND_URL: Optional[str] = None

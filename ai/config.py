@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # Google Gemini API Configuration
     GEMINI_API_KEY: str = Field(..., description="Google Gemini API key")
     
+    # Hugging Face Configuration
+    HUGGING_FACE_TOKEN: str = Field(..., description="Hugging Face API token")
+    
     # RabbitMQ Configuration
     RABBITMQ_URL: str = Field(default="amqp://localhost:5672/", description="RabbitMQ connection URL")
     

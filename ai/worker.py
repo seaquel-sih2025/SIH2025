@@ -5,108 +5,44 @@ import time
 import requests
 import os
 import sys
-import google.generativeai as genai
-from config import settings # Use the new local config
+from config import settings  # Use the new local config
+from huggingface_hub import InferenceClient # Import the Hugging Face client
 
-# Configure the Gemini API client
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Initialize the Hugging Face client
+hf_client = InferenceClient(token=settings.HUGGING_FACE_TOKEN)
 
-# --- Standalone NLP Analysis Logic ---
-import time
-import random
-
-def analyze_description_with_gemini(description: str, max_retries: int = 3):
+def analyze_description_with_huggingface(description: str, max_retries: int = 3):
     """
-    Uses the Gemini LLM to analyze the user's description and extract structured data.
-    Includes retry logic for rate limiting and quota issues.
+    Uses the Hugging Face model to analyze the user's description.
+    Includes retry logic for API errors.
     """
-    model = genai.GenerativeModel('gemini-pro')
-    prompt = f"""
-    Analyze the following hazard report description and extract the following information in a structured JSON format:
-    - "hazard_type": Classify the event into one of the following categories: Tsunami, Storm Surge, High Waves, Coastal Flooding, Unusual Sea Behavior, Other.
-    - "urgency": Assess the urgency on a scale of Low, Medium, High, or Critical.
-    - "sentiment": Determine the sentiment of the reporter (e.g., Worried, Panicked, Informative).
-    - "summary": Provide a brief, one-sentence summary of the event.
-
-    Description: "{description}"
-
-    Return ONLY the JSON object.
-    """
-    
     for attempt in range(max_retries):
         try:
-            response = model.generate_content(prompt)
-            # Clean the response to get only the JSON part
-            json_str = response.text.strip().replace('```json', '').replace('```', '').strip()
-            return json.loads(json_str)
-        except Exception as e:
-            error_msg = str(e)
-            print(f"Error analyzing with Gemini (attempt {attempt + 1}/{max_retries}): {e}")
-            
-            # Check if it's a quota/rate limit error
-            if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "429" in error_msg:
-                if attempt < max_retries - 1:
-                    # Exponential backoff with jitter
-                    wait_time = (2 ** attempt) + random.uniform(0, 1)
-                    print(f"Rate limit hit. Waiting {wait_time:.1f} seconds before retry...")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    print("Max retries reached for quota/rate limit. Using fallback analysis.")
-                    return fallback_analysis(description)
+            # Call the Hugging Face model
+            response = hf_client.text_classification(
+                model="prathamesh788/pravaah",
+                inputs=description
+            )
+            # Assuming the model returns a list of dictionaries with 'label' and 'score'
+            if response and isinstance(response, list) and all('label' in res and 'score' in res for res in response):
+                # You might want to process the response further, but for now, we'll return it as is
+                return response
             else:
-                # For other errors, don't retry
-                return {"error": f"Failed to analyze description: {error_msg}"}
-    
-    return {"error": "Failed to analyze description after all retries."}
+                return {"error": "Invalid response from NLP model"}
+        except requests.exceptions.RequestException as e:
+            print(f"Error analyzing with Hugging Face (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                wait_time = (2 ** attempt)
+                print(f"API request failed. Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
+                continue
+            else:
+                return {"error": f"Failed to analyze description after {max_retries} retries."}
+        except Exception as e:
+            # For other errors, don't retry
+            return {"error": f"Failed to analyze description: {str(e)}"}
 
-def fallback_analysis(description: str):
-    """
-    Simple fallback analysis when Gemini API is unavailable.
-    Provides basic keyword-based analysis.
-    """
-    description_lower = description.lower()
-    
-    # Simple keyword matching for hazard type
-    hazard_keywords = {
-        "tsunami": ["tsunami", "tidal wave", "giant wave"],
-        "storm_surge": ["storm surge", "storm", "surge"],
-        "high_waves": ["high waves", "big waves", "swell", "rough seas", "high surf", "surf advisory"],
-        "coastal_flooding": ["coastal flooding", "flooding", "flood", "water level", "inundation"],
-        "rip_current": ["rip current", "rip", "undertow"],
-        "coastal_erosion": ["coastal erosion", "beach erosion", "shoreline erosion"],
-        "other": []
-    }
-    
-    detected_hazard = "other"
-    for hazard, keywords in hazard_keywords.items():
-        if any(keyword in description_lower for keyword in keywords):
-            detected_hazard = hazard
-            break
-    
-    # Simple urgency detection
-    urgent_keywords = ["urgent", "emergency", "immediate", "dangerous", "critical"]
-    urgency = "High" if any(keyword in description_lower for keyword in urgent_keywords) else "Medium"
-    
-    # Simple sentiment detection
-    panic_keywords = ["panic", "scared", "frightened", "terrified"]
-    calm_keywords = ["calm", "normal", "usual"]
-    
-    if any(keyword in description_lower for keyword in panic_keywords):
-        sentiment = "Panicked"
-    elif any(keyword in description_lower for keyword in calm_keywords):
-        sentiment = "Calm"
-    else:
-        sentiment = "Informative"
-    
-    return {
-        # Use backend enum style: lowercase with underscores
-        "hazard_type": detected_hazard,
-        "urgency": urgency,
-        "sentiment": sentiment,
-        "summary": f"Fallback analysis: {description[:100]}{'...' if len(description) > 100 else ''}",
-        "analysis_method": "fallback_keywords"
-    }
+    return {"error": "Failed to analyze description after all retries."}
 
 # --- Standalone RabbitMQ Callback ---
 def on_message_received(ch, method, properties, body):
@@ -124,30 +60,7 @@ def on_message_received(ch, method, properties, body):
         return
 
     print(f" [*] Analyzing description for report_id: {report_id}")
-    analysis_results = analyze_description_with_gemini(description)
-
-    # Normalize hazard_type to backend enum (lowercase with underscores)
-    try:
-        ht = analysis_results.get("hazard_type") if isinstance(analysis_results, dict) else None
-        if isinstance(ht, str) and ht.strip():
-            norm = ht.strip().lower().replace("-", "_").replace(" ", "_")
-            synonyms = {
-                "storm": "storm_surge",
-                "stormsurge": "storm_surge",
-                "high_surf": "high_waves",
-                "high_wave": "high_waves",
-                "coastal_flood": "coastal_flooding",
-                "rip": "rip_current",
-                "ripcurrents": "rip_current",
-                "erosion": "coastal_erosion",
-                "algae_bloom": "water_discoloration",
-                "algal_bloom": "water_discoloration",
-                "red_tide": "water_discoloration",
-                "debris": "marine_debris",
-            }
-            analysis_results["hazard_type"] = synonyms.get(norm, norm)
-    except Exception:
-        pass
+    analysis_results = analyze_description_with_huggingface(description)
 
     # Prepare data for the fan-in endpoint
     verification_payload = {
@@ -198,11 +111,4 @@ def start_worker():
             time.sleep(5)
 
 if __name__ == '__main__':
-    # Test the fallback analysis if run directly
-    if len(sys.argv) > 1 and sys.argv[1] == "test":
-        test_description = "The waves are getting very high and the wind is strong. Water is reaching the shore line."
-        print("Testing fallback analysis:")
-        result = fallback_analysis(test_description)
-        print(json.dumps(result, indent=2))
-    else:
-        start_worker()
+    start_worker()
