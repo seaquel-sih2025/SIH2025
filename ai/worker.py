@@ -19,15 +19,38 @@ def analyze_description_with_huggingface(description: str, max_retries: int = 3)
     for attempt in range(max_retries):
         try:
             # Call the Hugging Face model
+            print(f" [→] Sending to HF model 'cardiffnlp/twitter-roberta-base-sentiment-latest': {description}")
             response = hf_client.text_classification(
-                model="prathamesh788/pravaah",
-                inputs=description
+                text=description,
+                model="cardiffnlp/twitter-roberta-base-sentiment-latest"
             )
-            # Assuming the model returns a list of dictionaries with 'label' and 'score'
-            if response and isinstance(response, list) and all('label' in res and 'score' in res for res in response):
-                # You might want to process the response further, but for now, we'll return it as is
-                return response
+            print(f" [←] Received from HF model: {response}")
+            # Convert response objects to dictionaries if needed
+            if response and isinstance(response, list):
+                # Convert TextClassificationOutputElement objects to dicts
+                converted_response = []
+                for item in response:
+                    if hasattr(item, 'label') and hasattr(item, 'score'):
+                        converted_response.append({
+                            "label": item.label,
+                            "score": item.score
+                        })
+                    elif isinstance(item, dict) and 'label' in item and 'score' in item:
+                        converted_response.append(item)
+                    else:
+                        print(f" [!] Unexpected response item format: {item}")
+                        return {"error": "Invalid response item format from NLP model"}
+                
+                print(f" [←] Converted response: {converted_response}")
+                # Wrap the classifications in a dictionary structure like the weather worker
+                nlp_result = {
+                    "classifications": converted_response,
+                    "model_used": "cardiffnlp/twitter-roberta-base-sentiment-latest",
+                    "top_prediction": converted_response[0] if converted_response else None
+                }
+                return nlp_result
             else:
+                print(f" [!] Invalid response format from NLP model: {response}")
                 return {"error": "Invalid response from NLP model"}
         except requests.exceptions.RequestException as e:
             print(f"Error analyzing with Hugging Face (attempt {attempt + 1}/{max_retries}): {e}")
@@ -68,6 +91,7 @@ def on_message_received(ch, method, properties, body):
         "result_data": analysis_results
     }
 
+    print(f" [→] Sending to backend API: {verification_payload}")
     # Make a POST request to the backend's fan-in endpoint
     try:
         response = requests.post(
@@ -76,9 +100,14 @@ def on_message_received(ch, method, properties, body):
             timeout=30
         )
         response.raise_for_status() # Raise an exception for bad status codes
+        print(f" [←] Backend API response: {response.status_code} - {response.text}")
         print(f" [✔] Successfully submitted NLP verification for report_id: {report_id}")
+    except requests.exceptions.HTTPError as e:
+        print(f" [!] Failed to submit NLP verification. HTTP Error: {e}")
+        print(f" [!] Response status: {e.response.status_code}")
+        print(f" [!] Response body: {e.response.text}")
     except requests.exceptions.RequestException as e:
-        print(f" [!] Failed to submit NLP verification. Error: {e}")
+        print(f" [!] Failed to submit NLP verification. Request Error: {e}")
         # Here you might want to implement a retry mechanism or log to a dead-letter queue
 
     ch.basic_ack(delivery_tag=method.delivery_tag)
