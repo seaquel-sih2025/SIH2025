@@ -492,12 +492,22 @@ const OfficialDashboard = () => {
       const updatedQueue = triageQueue.filter(item => item.id !== triageId);
       setTriageQueue(updatedQueue);
       
-      // Update stats
-      setStats(prevStats => ({
-        ...prevStats,
-        underVerification: prevStats.underVerification - 1,
-        [action]: prevStats[action] + 1
-      }));
+      // Update stats safely
+      setStats(prevStats => {
+        const newStats = {
+          ...prevStats,
+          underVerification: Math.max(0, prevStats.underVerification - 1)
+        };
+        
+        // Only update the count if the action is a valid property
+        if (action === 'verified' && typeof newStats.verified === 'number') {
+          newStats.verified = newStats.verified + 1;
+        } else if (action === 'rejected' && typeof newStats.rejected === 'number') {
+          newStats.rejected = newStats.rejected + 1;
+        }
+        
+        return newStats;
+      });
       
       // Show success message
       console.log(`Report ${triageId} ${action} successfully`);

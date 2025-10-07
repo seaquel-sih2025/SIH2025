@@ -48,9 +48,12 @@ async def get_unverified_reports(
     current_user: User = Depends(get_current_official),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get pending reports that need verification by authorities."""
+    """Get pending reports that need verification by officials, including auto-rejected reports that can be overridden."""
     
-    query = select(Report).where(Report.status == ReportStatus.under_verification)
+    # Include both under_verification and rejected reports for manual review
+    query = select(Report).where(
+        Report.status.in_([ReportStatus.under_verification, ReportStatus.rejected])
+    )
     
     if hazard_type:
         query = query.where(Report.user_hazard_type == hazard_type)
@@ -88,7 +91,9 @@ async def verify_report(
     current_user: User = Depends(get_current_official),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update report verification status (Verified/Rejected/Action Taken)."""
+    """Update report verification status (Verified/Rejected/Action Taken) for reports in Medium/Low confidence range."""
+    
+    print(f"[DEBUG] Verification request received: report_id={report_id}, status={verification.status}, user={current_user.email}")
     
     # Get the report
     query = select(Report).where(Report.id == report_id)
@@ -96,25 +101,95 @@ async def verify_report(
     report = result.scalars().first()
     
     if not report:
+        print(f"[DEBUG] Report {report_id} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Report not found"
         )
     
+    print(f"[DEBUG] Report found: status={report.status}, confidence={report.final_confidence_score}")
+    
+    # Check if report is in the correct state for manual verification
+    # Allow verification for:
+    # 1. Reports under_verification (normal manual review)
+    # 2. Reports rejected (official override capability)
+    if report.status not in [ReportStatus.under_verification, ReportStatus.rejected]:
+        print(f"[DEBUG] Report status check failed: current status is {report.status}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report is already {report.status.value}. Only reports under verification or rejected reports can be manually verified."
+        )
+    
+    # If report is rejected, allow officials to override
+    if report.status == ReportStatus.rejected:
+        print(f"[DEBUG] Official override: allowing verification of rejected report {report_id}")
+    
+    # Check confidence level - only allow manual verification for Medium/Low confidence (40-80%)
+    # BUT allow override of rejected reports regardless of confidence
+    confidence_score = report.final_confidence_score
+    
+    # TEMPORARY: Allow verification of reports with 0.0 confidence for testing
+    # TODO: Remove this once the verification pipeline is fully working
+    if confidence_score == 0.0:
+        print(f"[DEBUG] TEMPORARY: Allowing verification of report with 0.0 confidence for testing")
+        # Continue with verification instead of raising an error
+    elif report.status == ReportStatus.rejected:
+        print(f"[DEBUG] Official override: allowing verification of rejected report regardless of confidence ({confidence_score})")
+        # Allow officials to override any rejected report
+    elif confidence_score < 0.4:
+        print(f"[DEBUG] Confidence too low: {confidence_score}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report has Very Low confidence ({confidence_score:.2f}). It should be automatically rejected."
+        )
+    elif confidence_score >= 0.8:
+        print(f"[DEBUG] Confidence too high: {confidence_score}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report has High confidence ({confidence_score:.2f}). It should be automatically verified."
+        )
+    
+    # Confidence is in range 0.4-0.8 (Medium/Low) - allow manual verification
+    print(f"[Official Verification] Official {current_user.email} manually verifying report {report_id} "
+          f"with confidence {confidence_score:.2f} ({_get_confidence_level(confidence_score)})")
+    
     # Update the report status
+    old_status = report.status
     report.status = verification.status
+    
+    print(f"[DEBUG] Updating report status from {old_status} to {verification.status}")
     
     # TODO: Add verification notes to a separate table if needed
     # For now, we'll just update the status
     
-    await db.commit()
-    await db.refresh(report)
+    try:
+        await db.commit()
+        await db.refresh(report)
+        print(f"[DEBUG] Report {report_id} successfully updated to {verification.status}")
+    except Exception as e:
+        print(f"[DEBUG] Database error: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
     
     return VerificationResponse(
-        message=f"Report {report_id} status updated to {verification.status.value}",
+        message=f"Report {report_id} manually {verification.status.value} by official (confidence: {confidence_score:.2f})",
         report_id=report_id,
         new_status=verification.status
     )
+
+def _get_confidence_level(score: float) -> str:
+    """Convert numeric score to confidence level."""
+    if score >= 0.8:
+        return "High"
+    elif score >= 0.6:
+        return "Medium"
+    elif score >= 0.4:
+        return "Low"
+    else:
+        return "Very Low"
 
 @router.get("/map/assets")
 async def get_map_assets(

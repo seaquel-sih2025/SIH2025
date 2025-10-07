@@ -48,9 +48,12 @@ async def get_unverified_reports(
     current_user: User = Depends(get_current_authority),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get pending reports that need verification by authorities."""
+    """Get pending reports that need verification by authorities, including auto-rejected reports that can be overridden."""
     
-    query = select(Report).where(Report.status == ReportStatus.under_verification)
+    # Include both under_verification and rejected reports for manual review
+    query = select(Report).where(
+        Report.status.in_([ReportStatus.under_verification, ReportStatus.rejected])
+    )
     
     if hazard_type:
         query = query.where(Report.user_hazard_type == hazard_type)
@@ -88,7 +91,7 @@ async def verify_report(
     current_user: User = Depends(get_current_authority),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update report verification status (Verified/Rejected/Action Taken)."""
+    """Update report verification status (Verified/Rejected/Action Taken) for reports in Medium/Low confidence range."""
     
     # Get the report
     query = select(Report).where(Report.id == report_id)
@@ -101,6 +104,46 @@ async def verify_report(
             detail="Report not found"
         )
     
+    # Check if report is in the correct state for manual verification
+    # Allow verification for:
+    # 1. Reports under_verification (normal manual review)
+    # 2. Reports rejected (authority override capability)
+    if report.status not in [ReportStatus.under_verification, ReportStatus.rejected]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report is already {report.status.value}. Only reports under verification or rejected reports can be manually verified."
+        )
+    
+    # If report is rejected, allow authorities to override
+    if report.status == ReportStatus.rejected:
+        print(f"[DEBUG] Authority override: allowing verification of rejected report {report_id}")
+    
+    # Check confidence level - only allow manual verification for Medium/Low confidence (40-80%)
+    # BUT allow override of rejected reports regardless of confidence
+    confidence_score = report.final_confidence_score
+    if report.status == ReportStatus.rejected:
+        print(f"[DEBUG] Authority override: allowing verification of rejected report regardless of confidence ({confidence_score})")
+        # Allow authorities to override any rejected report
+    elif confidence_score < 0.4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report has Very Low confidence ({confidence_score:.2f}). It should be automatically rejected."
+        )
+    elif confidence_score >= 0.8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report has High confidence ({confidence_score:.2f}). It should be automatically verified."
+        )
+    elif confidence_score == 0.0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Report verification is still in progress. Please wait for automatic confidence calculation to complete."
+        )
+    
+    # Confidence is in range 0.4-0.8 (Medium/Low) - allow manual verification
+    print(f"[Authority Verification] Authority {current_user.email} manually verifying report {report_id} "
+          f"with confidence {confidence_score:.2f} ({_get_confidence_level(confidence_score)})")
+    
     # Update the report status
     report.status = verification.status
     
@@ -111,10 +154,21 @@ async def verify_report(
     await db.refresh(report)
     
     return VerificationResponse(
-        message=f"Report {report_id} status updated to {verification.status.value}",
+        message=f"Report {report_id} manually {verification.status.value} by authority (confidence: {confidence_score:.2f})",
         report_id=report_id,
         new_status=verification.status
     )
+
+def _get_confidence_level(score: float) -> str:
+    """Convert numeric score to confidence level."""
+    if score >= 0.8:
+        return "High"
+    elif score >= 0.6:
+        return "Medium"
+    elif score >= 0.4:
+        return "Low"
+    else:
+        return "Very Low"
 
 @router.get("/map/assets")
 async def get_map_assets(

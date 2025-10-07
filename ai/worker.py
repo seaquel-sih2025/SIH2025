@@ -1,143 +1,134 @@
-# ai/worker.py
 import pika
 import json
-import time
 import requests
-import os
-import sys
-from config import settings  # Use the new local config
-from huggingface_hub import InferenceClient # Import the Hugging Face client
+import logging
 
-# Initialize the Hugging Face client
-hf_client = InferenceClient(token=settings.HUGGING_FACE_TOKEN)
+# Correctly import the settings object from your config file
+from config import settings
 
-def analyze_description_with_huggingface(description: str, max_retries: int = 3):
+# --- Set up basic logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# --- Hugging Face API Configuration ---
+# You might consider moving this URL to your .env and config.py file later
+HF_API_URL = "https://huggingface.co/spaces/prathamesh788/pravaah/analyze"
+
+def classify_description_with_hf_api(description: str) -> dict:
     """
-    Uses the Hugging Face model to analyze the user's description.
-    Includes retry logic for API errors.
+    Sends a description to the Hugging Face API for analysis and returns the result.
     """
-    for attempt in range(max_retries):
-        try:
-            # Call the Hugging Face model
-            print(f" [→] Sending to HF model 'cardiffnlp/twitter-roberta-base-sentiment-latest': {description}")
-            response = hf_client.text_classification(
-                text=description,
-                model="cardiffnlp/twitter-roberta-base-sentiment-latest"
-            )
-            print(f" [←] Received from HF model: {response}")
-            # Convert response objects to dictionaries if needed
-            if response and isinstance(response, list):
-                # Convert TextClassificationOutputElement objects to dicts
-                converted_response = []
-                for item in response:
-                    if hasattr(item, 'label') and hasattr(item, 'score'):
-                        converted_response.append({
-                            "label": item.label,
-                            "score": item.score
-                        })
-                    elif isinstance(item, dict) and 'label' in item and 'score' in item:
-                        converted_response.append(item)
-                    else:
-                        print(f" [!] Unexpected response item format: {item}")
-                        return {"error": "Invalid response item format from NLP model"}
-                
-                print(f" [←] Converted response: {converted_response}")
-                # Wrap the classifications in a dictionary structure like the weather worker
-                nlp_result = {
-                    "classifications": converted_response,
-                    "model_used": "cardiffnlp/twitter-roberta-base-sentiment-latest",
-                    "top_prediction": converted_response[0] if converted_response else None
-                }
-                return nlp_result
-            else:
-                print(f" [!] Invalid response format from NLP model: {response}")
-                return {"error": "Invalid response from NLP model"}
-        except requests.exceptions.RequestException as e:
-            print(f"Error analyzing with Hugging Face (attempt {attempt + 1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                wait_time = (2 ** attempt)
-                print(f"API request failed. Waiting {wait_time} seconds before retry...")
-                time.sleep(wait_time)
-                continue
-            else:
-                return {"error": f"Failed to analyze description after {max_retries} retries."}
-        except Exception as e:
-            # For other errors, don't retry
-            return {"error": f"Failed to analyze description: {str(e)}"}
+    logging.info(f"Sending description to Hugging Face API: '{description}'")
 
-    return {"error": "Failed to analyze description after all retries."}
-
-# --- Standalone RabbitMQ Callback ---
-def on_message_received(ch, method, properties, body):
-    """
-    Callback function to process messages from the nlp_queue.
-    """
-    print(" [x] Received new message from nlp_queue")
-    report_data = json.loads(body)
-    report_id = report_data.get("report_id")
-    description = report_data.get("user_description")
-
-    if not report_id or not description:
-        print(" [!] Invalid message format. Missing 'report_id' or 'user_description'.")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-        return
-
-    print(f" [*] Analyzing description for report_id: {report_id}")
-    analysis_results = analyze_description_with_huggingface(description)
-
-    # Prepare data for the fan-in endpoint
-    verification_payload = {
-        "report_id": report_id,
-        "result_data": analysis_results
+    # The HF API expects a 'query', so we'll use the user's description.
+    payload = {
+        "query": description,
+        "limit": 5
     }
 
-    print(f" [→] Sending to backend API: {verification_payload}")
-    # Make a POST request to the backend's fan-in endpoint
     try:
-        response = requests.post(
-            f"{settings.BACKEND_URL}/api/verifications/nlp",
-            json=verification_payload,
-            timeout=30
-        )
-        response.raise_for_status() # Raise an exception for bad status codes
-        print(f" [←] Backend API response: {response.status_code} - {response.text}")
-        print(f" [✔] Successfully submitted NLP verification for report_id: {report_id}")
-    except requests.exceptions.HTTPError as e:
-        print(f" [!] Failed to submit NLP verification. HTTP Error: {e}")
-        print(f" [!] Response status: {e.response.status_code}")
-        print(f" [!] Response body: {e.response.text}")
+        response = requests.post(HF_API_URL, json=payload, timeout=30) # Added a timeout
+        
+        # Print detailed response information for debugging
+        print(f"🔍 DEBUG: Response Status Code: {response.status_code}")
+        print(f"🔍 DEBUG: Response Headers: {dict(response.headers)}")
+        print(f"🔍 DEBUG: Response Content: {response.text}")
+        
+        response.raise_for_status()  # This will raise an error for bad responses (4xx or 5xx)
+
+        logging.info("Successfully received analysis from Hugging Face API.")
+        api_result = response.json()
+        print(f"🔍 DEBUG: Parsed JSON Response: {api_result}")
+
+        if api_result.get("hazardous_tweets"):
+            first_hazard = api_result["hazardous_tweets"][0]
+            # Prioritize NER hazard detection
+            hazard_type = first_hazard.get("ner", {}).get("hazards", ["other"])[0]
+            # Normalize to match your database schema (e.g., "High Waves" -> "high_waves")
+            normalized_hazard = hazard_type.lower().replace(" ", "_")
+            return {"hazard_type": normalized_hazard}
+        else:
+             logging.info("No hazardous content identified by the API.")
+             return {"hazard_type": "other"}
+
     except requests.exceptions.RequestException as e:
-        print(f" [!] Failed to submit NLP verification. Request Error: {e}")
-        # Here you might want to implement a retry mechanism or log to a dead-letter queue
+        logging.error(f"Could not connect to Hugging Face API: {e}")
+        print(f"🔍 DEBUG: Request Exception Details: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"🔍 DEBUG: Error Response Status: {e.response.status_code}")
+            print(f"🔍 DEBUG: Error Response Text: {e.response.text}")
+        return {"hazard_type": "other"} # Fallback on connection error
+    except Exception as e:
+        logging.error(f"An error occurred while processing the HF API response: {e}")
+        return {"hazard_type": "other"} # Fallback on other errors
 
-    ch.basic_ack(delivery_tag=method.delivery_tag)
 
-# --- Standalone RabbitMQ Connection Logic ---
+def process_message(channel, method, properties, body):
+    """
+    Callback function to process a message from the reports queue.
+    """
+    try:
+        data = json.loads(body)
+
+        # Extract user_description and report_id directly from the message
+        user_description = data.get("user_description")
+        report_id = data.get("report_id")
+
+        if not user_description or not report_id:
+            logging.warning(f"Message missing 'user_description' or 'report_id'. Skipping. Body: {data}")
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+            return
+
+        logging.info(f"Received report {report_id} for analysis.")
+
+        # Use the function that calls your Hugging Face API
+        analysis_result = classify_description_with_hf_api(user_description)
+        hazard_type = analysis_result.get("hazard_type", "other")
+
+        logging.info(f"Analysis complete for report {report_id}. Hazard type: {hazard_type}")
+
+        # TODO: Implement your database update logic here
+        # Example: update_report_in_db(report_id, hazard_type)
+        logging.info(f"Would update report {report_id} with hazard '{hazard_type}' in the database.")
+
+        # Acknowledge that the message has been successfully processed
+        channel.basic_ack(delivery_tag=method.delivery_tag)
+
+    except json.JSONDecodeError:
+        logging.error("Failed to decode message body.")
+        channel.basic_ack(delivery_tag=method.delivery_tag)
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}", exc_info=True)
+        # Negatively acknowledge the message, and don't requeue it to prevent loops
+        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
 def start_worker():
     """
-    Connects to RabbitMQ and starts consuming messages from the nlp_queue.
+    Connects to RabbitMQ and starts consuming messages.
     """
-    connection_params = pika.URLParameters(settings.RABBITMQ_URL)
-    while True:
-        try:
-            connection = pika.BlockingConnection(connection_params)
-            channel = connection.channel()
-            channel.queue_declare(queue='nlp_queue', durable=True)
-            channel.basic_qos(prefetch_count=1)
-            channel.basic_consume(queue='nlp_queue', on_message_callback=on_message_received)
+    try:
+        # Use the settings object to get the RabbitMQ URL
+        connection = pika.BlockingConnection(pika.URLParameters(settings.RABBITMQ_URL))
+        channel = connection.channel()
 
-            print(' [*] NLP Worker is waiting for messages. To exit press CTRL+C')
-            channel.start_consuming()
+        channel.queue_declare(queue='nlp_queue', durable=True)
+        logging.info('Waiting for messages in "nlp_queue". To exit press CTRL+C')
 
-        except pika.exceptions.AMQPConnectionError as e:
-            print(f"Connection failed: {e}. Retrying in 5 seconds...")
-            time.sleep(5)
-        except KeyboardInterrupt:
-            print("Interrupted by user. Shutting down...")
-            break
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}. Restarting worker...")
-            time.sleep(5)
+        channel.basic_qos(prefetch_count=1)
+        channel.basic_consume(queue='nlp_queue', on_message_callback=process_message)
+
+        channel.start_consuming()
+
+    except pika.exceptions.AMQPConnectionError as e:
+        logging.error(f"Failed to connect to RabbitMQ: {e}. Is it running?")
+    except KeyboardInterrupt:
+        logging.info("Worker stopped manually.")
+    except Exception as e:
+        logging.error(f"An error occurred in the worker: {e}", exc_info=True)
+    finally:
+        if 'connection' in locals() and connection.is_open:
+            connection.close()
+            logging.info("RabbitMQ connection closed.")
+
 
 if __name__ == '__main__':
     start_worker()

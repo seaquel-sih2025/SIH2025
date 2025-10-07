@@ -40,14 +40,8 @@ const Report = () => {
   const [locationAllowed, setLocationAllowed] = useState(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   
-  const fileInputRef = useRef(null);
-  const videoInputRef = useRef(null);
-  const uploadInputRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioRef = useRef(null);
-  const watchIdRef = useRef(null);
-
-  const incidentTypes = [
+  // Dynamic incident types state - can be updated when AI detects new types
+  const [incidentTypes, setIncidentTypes] = useState([
     { value: 'usual_tides', label: 'Usual Tides' },
     { value: 'flooding', label: 'Flooding' },
     { value: 'coastal_damage', label: 'Coastal Damage' },
@@ -58,7 +52,45 @@ const Report = () => {
     { value: 'marine_life', label: 'Marine Life Alert' },
     { value: 'weather_alert', label: 'Weather Alert' },
     { value: 'other', label: 'Other' }
-  ];
+  ]);
+  
+  const fileInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioRef = useRef(null);
+  const watchIdRef = useRef(null);
+
+  // Function to add a new hazard type to the dropdown if it doesn't exist
+  const addHazardTypeIfNeeded = (hazardType) => {
+    const hazardValue = hazardType.toLowerCase().replace(/\s+/g, '_');
+    const hazardLabel = hazardType;
+    
+    // Check if this hazard type already exists in the dropdown
+    const exists = incidentTypes.some(type => type.value === hazardValue);
+    
+    if (!exists) {
+      // Add the new hazard type to the dropdown (before "Other")
+      const newType = { value: hazardValue, label: hazardLabel };
+      setIncidentTypes(prev => {
+        const otherIndex = prev.findIndex(type => type.value === 'other');
+        if (otherIndex !== -1) {
+          // Insert before "Other"
+          const newTypes = [...prev];
+          newTypes.splice(otherIndex, 0, newType);
+          return newTypes;
+        } else {
+          // Just add to the end
+          return [...prev, newType];
+        }
+      });
+      
+      console.log('🆕 Added new hazard type to dropdown:', hazardLabel, 'with value:', hazardValue);
+      return hazardValue;
+    }
+    
+    return hazardValue;
+  };
 
   // Function to get current location
   const getCurrentLocation = () => {
@@ -210,9 +242,17 @@ const Report = () => {
             type: result.hazard_type,
             description: result.hazard_description
           });
-          // Set the form fields
-          setSelectedIncidentType(result.hazard_type.toLowerCase().replace(/ /g, '_'));
+          
+          // Add the detected hazard type to dropdown if it doesn't exist, then select it
+          const hazardTypeValue = addHazardTypeIfNeeded(result.hazard_type);
+          setSelectedIncidentType(hazardTypeValue);
           setDescription(result.hazard_description);
+          
+          console.log('🎯 Autofill applied:', {
+            originalHazardType: result.hazard_type,
+            selectedValue: hazardTypeValue,
+            description: result.hazard_description
+          });
         }
       }
     } catch (error) {

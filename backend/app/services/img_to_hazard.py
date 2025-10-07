@@ -7,8 +7,13 @@ from PIL import Image
 import io
 
 # --- Load Environment Variables ---
-# This loads the GOOGLE_API_KEY from your .env file
+# This loads the GEMINI_API_KEY from your .env file
 load_dotenv()
+
+# Set GOOGLE_API_KEY from GEMINI_API_KEY for LangChain compatibility
+gemini_key = os.getenv("GEMINI_API_KEY")
+if gemini_key:
+    os.environ["GOOGLE_API_KEY"] = gemini_key
 
 # --- Main Function to Analyze Hazard ---
 def analyze_ocean_hazard(image_path: str):
@@ -84,8 +89,8 @@ if __name__ == "__main__":
     image_to_analyze = "flooding.jpg"
     
     # Ensure the API key is available before running
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("Error: API key not found. Please create a .env file with your GOOGLE_API_KEY.")
+    if not os.getenv("GEMINI_API_KEY"):
+        print("Error: API key not found. Please create a .env file with your GEMINI_API_KEY.")
     else:
         analysis_result = analyze_ocean_hazard(image_to_analyze)
         
