@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, WifiOff, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { getConnectionStatusColor } from '../../utils/helpers';
 import api from '../../utils/api';
 
 const ConnectionTest = ({ onClose }) => {
@@ -96,18 +97,7 @@ const ConnectionTest = ({ onClose }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'success':
-        return 'text-green-700 bg-green-50 border-green-200';
-      case 'error':
-        return 'text-red-700 bg-red-50 border-red-200';
-      case 'warning':
-        return 'text-yellow-700 bg-yellow-50 border-yellow-200';
-      default:
-        return 'text-gray-700 bg-gray-50 border-gray-200';
-    }
-  };
+
 
   const allTestsPassed = tests.every(test => test.status === 'success');
   const hasErrors = tests.some(test => test.status === 'error');
@@ -136,7 +126,7 @@ const ConnectionTest = ({ onClose }) => {
           {tests.map((test, index) => (
             <div
               key={index}
-              className={`p-3 rounded-lg border ${getStatusColor(test.status)}`}
+              className={`p-3 rounded-lg border ${getConnectionStatusColor(test.status)}`}
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium">{test.name}</span>

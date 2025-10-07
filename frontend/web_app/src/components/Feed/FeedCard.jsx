@@ -1,31 +1,14 @@
 import React from 'react';
 import { ExternalLink, MapPin, Clock, AlertTriangle } from 'lucide-react';
 import { getUrgencyStyle, getSentimentStyle, getSourceInfo } from '../../services/feedService.js';
+import { getRelativeTime } from '../../utils/helpers';
 
 const FeedCard = ({ item, index }) => {
   const urgencyStyle = getUrgencyStyle(item.urgency);
   const sentimentStyle = getSentimentStyle(item.sentiment);
   const sourceInfo = getSourceInfo(item.source);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown time';
-    
-    try {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-      
-      if (diffInHours < 1) return 'Just now';
-      if (diffInHours < 24) return `${diffInHours}h ago`;
-      
-      const diffInDays = Math.floor(diffInHours / 24);
-      if (diffInDays < 7) return `${diffInDays}d ago`;
-      
-      return date.toLocaleDateString();
-    } catch (error) {
-      return 'Unknown time';
-    }
-  };
+
 
   const handleLinkClick = (e) => {
     e.preventDefault();
@@ -44,7 +27,7 @@ const FeedCard = ({ item, index }) => {
         </div>
         <div className="flex items-center text-gray-500 text-xs">
           <Clock className="w-3.5 h-3.5 mr-1" />
-          {formatDate(item.created_at)}
+          {getRelativeTime(item.created_at)}
         </div>
       </div>
 

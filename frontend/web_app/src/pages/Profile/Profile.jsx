@@ -11,6 +11,7 @@ import {
   uploadProfilePicture 
 } from '../../services/userService';
 import { getProfilePictureUrl, getPlaceholderImageUrl } from '../../utils/imageUtils';
+import { getRelativeTime } from '../../utils/helpers';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('Overview');
@@ -165,19 +166,7 @@ const Profile = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Recently';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return '1 day ago';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-    return date.toLocaleDateString();
-  };
+
 
   if (loading) {
     return (
@@ -300,7 +289,7 @@ const Profile = () => {
                     </span>
                     <span className="flex items-center">
                       <Calendar className="w-4 h-4 mr-1" />
-                      Joined {profile?.created_at ? formatDate(profile.created_at) : 'Recently'}
+                      Joined {profile?.created_at ? getRelativeTime(profile.created_at) : 'Recently'}
                     </span>
                   </div>
                 </>
@@ -486,7 +475,7 @@ const Profile = () => {
                       }`}></div>
                       <div className="flex-1">
                         <p className="text-gray-900 font-medium">{item.title}</p>
-                        <p className="text-sm text-gray-500">{formatDate(item.created_at)}</p>
+                        <p className="text-sm text-gray-500">{getRelativeTime(item.created_at)}</p>
                       </div>
                     </div>
                   ))}
@@ -525,7 +514,7 @@ const Profile = () => {
                     </div>
                     <p className="text-gray-600 text-sm mb-2">{report.description}</p>
                     <div className="flex items-center text-xs text-gray-500">
-                      <span>{formatDate(report.created_at)}</span>
+                      <span>{getRelativeTime(report.created_at)}</span>
                       {report.location && (
                         <>
                           <span className="mx-2">•</span>
@@ -564,7 +553,7 @@ const Profile = () => {
                     </div>
                     <h4 className="font-medium text-gray-900 mb-1">{badge.name}</h4>
                     <p className="text-sm text-gray-600 mb-2">{badge.description}</p>
-                    <span className="text-xs text-gray-500">{formatDate(badge.earned_at)}</span>
+                    <span className="text-xs text-gray-500">{getRelativeTime(badge.earned_at)}</span>
                   </div>
                 ))}
               </div>
@@ -594,7 +583,7 @@ const Profile = () => {
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{reward.description}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">{formatDate(reward.earned_at)}</span>
+                      <span className="text-xs text-gray-500">{getRelativeTime(reward.earned_at)}</span>
                       {reward.redeemed && (
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                           Redeemed

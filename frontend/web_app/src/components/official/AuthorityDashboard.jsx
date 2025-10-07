@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, AlertTriangle, CheckCircle, Clock, MapPin, Users, MessageSquare, 
-  BarChart3, Eye, UserCheck, X, Plus, Search, Filter, Grid, List, 
-  Calendar, Edit, Trash2, User, Bell, Settings, TrendingUp,
-  FileText, Activity, Award, Target, Send, Radio, Layers, Zap,
-  Navigation, Phone, Truck, Building, Heart, Home, Route,
-  ChevronDown, MoreVertical, RefreshCw, Gauge, AlertCircle,
-  Map, Crosshair, Wifi, WifiOff, Volume2, VolumeX, Star,
-  Flag, Timer, Database, Globe, Satellite, Radar
+  Eye, UserCheck, X, Plus, User, Bell, TrendingUp,
+  Truck, Building, Heart, Home, Route, Layers, Zap,
+  RefreshCw, Gauge, Map, Phone, Wifi, Send, Radar, Satellite, Timer
 } from 'lucide-react';
+import { getReportStatusColor } from '../../utils/helpers';
 import api from '../../utils/api';
 import { getUserRole, getUserId } from '../../utils/auth';
 import { useNavigate } from 'react-router-dom';
@@ -341,16 +338,7 @@ const AuthorityDashboard = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'verified': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'under_verification': return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+
 
   const handleReportAction = async (reportId, action) => {
     try {

@@ -98,3 +98,28 @@ export const buildQueryString = (params) => {
   });
   return searchParams.toString();
 };
+
+// Status color utilities
+export const getReportStatusColor = (status) => {
+  switch (status?.toLowerCase()) {
+    case 'verified': return 'bg-green-100 text-green-800';
+    case 'rejected': return 'bg-red-100 text-red-800';
+    case 'under_verification': return 'bg-yellow-100 text-yellow-800';
+    case 'in_progress': return 'bg-blue-100 text-blue-800';
+    case 'pending': return 'bg-gray-100 text-gray-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+export const getConnectionStatusColor = (status) => {
+  switch (status) {
+    case 'success':
+      return 'text-green-700 bg-green-50 border-green-200';
+    case 'error':
+      return 'text-red-700 bg-red-50 border-red-200';
+    case 'warning':
+      return 'text-yellow-700 bg-yellow-50 border-yellow-200';
+    default:
+      return 'text-gray-700 bg-gray-50 border-gray-200';
+  }
+};
