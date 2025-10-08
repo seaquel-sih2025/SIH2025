@@ -1,41 +1,80 @@
 #!/usr/bin/env python3
 """
-Ultra minimal FastAPI for Render free tier - EMERGENCY memory mode
+ABSOLUTE MINIMAL HTTP server for Render free tier - Under 100MB memory
+Uses only Python standard library - NO external dependencies
 """
 
 import os
 import gc
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import json
 
-# Extreme memory optimization
-gc.set_threshold(50, 2, 2)
+# Force minimal memory
+gc.set_threshold(10, 2, 2)
 
-# Minimal FastAPI app
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+class MinimalHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """Handle GET requests"""
+        try:
+            if self.path == '/':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = {
+                    "message": "Pravaah API - Absolute minimal mode", 
+                    "status": "ok",
+                    "memory": "under 100MB"
+                }
+                self.wfile.write(json.dumps(response).encode())
+                
+            elif self.path == '/health':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = {"status": "ok", "mode": "absolute-minimal"}
+                self.wfile.write(json.dumps(response).encode())
+                
+            elif self.path == '/api/v1/health':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = {"status": "ok", "api": "minimal", "dependencies": "zero"}
+                self.wfile.write(json.dumps(response).encode())
+                
+            else:
+                self.send_response(404)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = {"error": "Not found", "mode": "minimal"}
+                self.wfile.write(json.dumps(response).encode())
+                
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            response = {"error": str(e), "mode": "minimal"}
+            self.wfile.write(json.dumps(response).encode())
+    
+    def log_message(self, format, *args):
+        """Disable request logging to save memory"""
+        pass
 
-app = FastAPI(title="Pravaah API - Emergency Mode")
-
-@app.get("/")
-async def root():
-    return {"message": "Pravaah API - Emergency minimal mode", "status": "ok"}
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "mode": "emergency"}
-
-@app.get("/api/v1/health")
-async def api_health():
-    return {"status": "ok", "api": "minimal"}
+def run_server():
+    """Run the minimal HTTP server"""
+    port = int(os.getenv('PORT', '10000'))
+    server_address = ('0.0.0.0', port)
+    httpd = HTTPServer(server_address, MinimalHandler)
+    
+    print(f"✅ Absolute minimal server running on port {port}")
+    print(f"✅ Memory usage: Minimal (Python stdlib only)")
+    
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("Server stopped")
+        httpd.server_close()
 
 if __name__ == "__main__":
-    import uvicorn
-    
-    # Ultra minimal uvicorn config
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=int(os.getenv("PORT", "10000")),
-        log_level="critical",
-        access_log=False,
-        workers=1
-    )
+    # Ultra aggressive cleanup
+    gc.collect()
+    run_server()

@@ -1,4 +1,2 @@
-# Minimal requirements for emergency deployment
-fastapi
-uvicorn
-pydantic
+# ABSOLUTELY NO DEPENDENCIES - Python standard library only
+# This ensures memory usage under 100MB
